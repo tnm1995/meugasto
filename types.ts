@@ -1,184 +1,224 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
-import type { Expense, BankTransaction, Omit } from '../types';
-import { CATEGORIES } from '../types';
+export type View = 'dashboard' | 'entries' | 'reports' | 'profile' | 'goals' | 'admin';
 
-// Initialize the Gemini API client directly with the environment variable
-// adhering to the requirement: const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-// Fallback to 'dummy-key' to prevent app crash on startup if key is missing.
-// The API call will catch the invalid key error gracefully.
-const apiKey = process.env.API_KEY || 'dummy-key';
-const ai = new GoogleGenAI({ apiKey: apiKey });
+export type UserRole = 'user' | 'admin' | 'super_admin' | 'operational_admin' | 'support_admin';
 
-// Cria uma representação de texto da árvore de categorias para o prompt
-// Ex: "Alimentação: [Supermercado, Restaurante...], Transporte: [Combustível...]"
-const categoriesContext = Object.entries(CATEGORIES)
-  .map(([cat, subs]) => `${cat}: [${subs.join(', ')}]`)
-  .join('\n');
+export type UserStatus = 'active' | 'blocked';
 
-const expenseResponseSchema = {
-  type: Type.OBJECT,
-  properties: {
-    localName: { type: Type.STRING, description: "Nome do estabelecimento comercial." },
-    purchaseDate: { type: Type.STRING, description: "Data da compra no formato YYYY-MM-DD. Se não encontrar o ano, assuma o ano atual." },
-    items: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          name: { type: Type.STRING },
-          price: { type: Type.NUMBER },
-        },
-        required: ['name', 'price'],
-      },
-      description: "Lista de produtos ou serviços adquiridos com seus respectivos preços unitários ou totais do item."
-    },
-    total: { type: Type.NUMBER, description: "Valor total final da nota fiscal." },
-    category: { 
-      type: Type.STRING, 
-      description: `A Categoria Principal da despesa. Deve ser EXATAMENTE uma das chaves desta lista:\n${Object.keys(CATEGORIES).join(', ')}` 
-    },
-    subcategory: { 
-      type: Type.STRING, 
-      description: `A Subcategoria mais específica. Deve ser EXATAMENTE uma das opções listadas dentro da Categoria escolhida acima.` 
-    },
-    paymentMethod: { type: Type.STRING, description: "Método de pagamento identificado (Crédito, Débito, Pix, Dinheiro, VR, etc)." }
-  },
-  required: ['localName', 'purchaseDate', 'total', 'category', 'subcategory', 'items'],
+export interface ReminderSettings {
+  email: boolean;
+  push: boolean;
+}
+
+export interface User {
+  uid: string;
+  name: string;
+  email: string;
+  phone?: string;
+  profileImage: string;
+  reminderSettings: ReminderSettings;
+  role: UserRole;
+  status: UserStatus;
+  createdAt: string; // ISO string
+  subscriptionExpiresAt: string | null; // ISO string YYYY-MM-DD
+  xp?: number;
+  currentStreak?: number;
+  lastInteractionDate?: string;
+  internalNotes?: string;
+  lastPayment?: {
+    date: string;
+    amount: number;
+    product?: string;
+    provider?: string;
+    transactionId?: string;
+  };
+  lastChatClearedAt?: any; // Timestamp or Date or serializable
+  lastSeen?: any;
+}
+
+export interface Expense {
+  id: string;
+  localName: string;
+  purchaseDate: string; // YYYY-MM-DD
+  total: number;
+  category: string;
+  subcategory: string;
+  isRecurring: boolean;
+  paymentMethod: string;
+  recurrenceFrequency?: 'daily' | 'weekly' | 'monthly' | 'annually';
+  type?: 'expense' | 'income';
+  items: { name: string; price: number }[];
+}
+
+export interface BankTransaction {
+  date: string;
+  description: string;
+  amount: number;
+  type: 'DEBIT' | 'CREDIT';
+}
+
+export interface Reminder {
+  id: string;
+  title: string;
+  date: string;
+  time: string;
+  frequency: 'once' | 'monthly';
+}
+
+export interface Goal {
+  id: string;
+  name: string;
+  category: string;
+  targetAmount: number;
+  startDate: string;
+  endDate: string;
+}
+
+export interface Budget {
+  id: string;
+  category: string;
+  amount: number;
+  startDate: string;
+  endDate: string;
+}
+
+export interface SavingsGoal {
+  id: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  deadline?: string;
+  color?: string;
+}
+
+export interface PricingSettings {
+  monthlyPrice: number;
+  annualPrice: number;
+}
+
+export interface AdminLog {
+  id: string;
+  adminId: string;
+  adminName: string;
+  action: string;
+  details: string;
+  targetUserId?: string | null;
+  targetUserName?: string | null;
+  timestamp: any;
+}
+
+export type TicketStatus = 'open' | 'in_progress' | 'resolved';
+export type TicketTag = 'financeiro' | 'bug' | 'cancelamento' | 'duvida' | 'feature';
+
+export interface Ticket {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  lastMessage: string;
+  lastMessageSender: 'user' | 'support';
+  updatedAt: any;
+  status: TicketStatus;
+  unreadCount: number;
+  isUserTyping?: boolean;
+  isSupportTyping?: boolean;
+  tags?: TicketTag[];
+  assignedTo?: string;
+  internalNotes?: string;
+  userLastActive?: any;
+}
+
+export interface ChatMessage {
+  id: string;
+  text: string;
+  sender: 'user' | 'support';
+  timestamp: any;
+  read: boolean;
+  attachmentUrl?: string;
+  attachmentType?: 'image' | 'file';
+}
+
+// Utility types
+export type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
+
+export type DocumentWithId<T> = T & { id: string };
+
+// Constants
+
+export const EXPENSE_CATEGORIES: Record<string, string[]> = {
+  'Alimentação': ['Supermercado (Geral)', 'Restaurante / Almoço', 'Lanches / Café', 'Bebidas', 'Delivery'],
+  'Moradia': ['Aluguel / Condomínio', 'Energia Elétrica', 'Água / Esgoto', 'Internet / TV', 'Gás', 'Manutenção / Reparos', 'Jardinagem / Plantas', 'Móveis / Decoração'],
+  'Transporte': ['Combustível', 'Uber / 99 / Táxi', 'Transporte Público', 'Manutenção Veículo', 'Estacionamento', 'IPVA / Licenciamento', 'Seguro Auto'],
+  'Lazer': ['Cinema / Teatro', 'Shows / Eventos', 'Viagens / Turismo', 'Hospedagem', 'Bares / Baladas', 'Hobbies', 'Streaming / Assinaturas'],
+  'Saúde': ['Farmácia / Remédios', 'Consultas / Exames', 'Plano de Saúde', 'Terapia / Psicólogo', 'Academia / Esportes', 'Dentista'],
+  'Cuidados Pessoais': ['Cabeleireiro / Barbeiro', 'Estética / Manicure', 'Cosméticos / Perfumaria', 'Higiene Pessoal'],
+  'Vestuário': ['Roupas', 'Calçados', 'Acessórios', 'Lavanderia'],
+  'Educação': ['Faculdade / Escola', 'Cursos Online', 'Livros / Material', 'Idiomas'],
+  'Compras': ['Eletrônicos', 'Eletrodomésticos', 'Presentes', 'Variedades'],
+  'Serviços': ['Seguro de Vida', 'Serviços Bancários', 'Limpeza / Diarista', 'Outros Serviços'],
+  'Impostos e Taxas': ['Imposto de Renda', 'IPTU', 'Taxas Bancárias', 'Outros Impostos'],
+  'Investimentos': ['Renda Fixa', 'Ações / Bolsa', 'Previdência Privada', 'Criptomoedas', 'Reserva de Emergência'],
+  'Dívidas e Empréstimos': ['Fatura Cartão de Crédito', 'Financiamento Imóvel', 'Financiamento Veículo', 'Empréstimo Pessoal'],
+  'Outros': ['Doações', 'Imprevistos', 'Não Identificado']
 };
 
-const bankTransactionResponseSchema = {
-  type: Type.ARRAY,
-  items: {
-    type: Type.OBJECT,
-    properties: {
-      date: { type: Type.STRING },
-      description: { type: Type.STRING },
-      amount: { type: Type.NUMBER },
-      type: { type: Type.STRING, enum: ['DEBIT', 'CREDIT'] },
-    },
-    required: ['date', 'description', 'amount', 'type'],
-  },
+export const INCOME_CATEGORIES: Record<string, string[]> = {
+    'Salário': ['Mensal', 'Adiantamento', '13º Salário', 'Férias', 'Bônus / PLR'],
+    'Empreendimento': ['Vendas de Produtos', 'Prestação de Serviços', 'Pró-labore', 'Lucros / Dividendos'],
+    'Investimentos': ['Dividendos / Juros', 'Aluguéis Recebidos', 'Renda Fixa (Resgate)', 'Venda de Ativos'],
+    'Benefícios': ['Vale Alimentação/Refeição', 'Auxílio Transporte', 'Aposentadoria', 'Bolsas / Auxílios Governo'],
+    'Outros': ['Presentes / Doações', 'Reembolsos', 'Venda de Bens Pessoais', 'Empréstimos Recebidos', 'Outros']
 };
 
-export const extractExpenseFromImage = async (base64Image: string): Promise<Omit<Expense, 'id'>> => {
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: { parts: [
-        { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
-        { text: `Analise esta imagem de cupom fiscal/recibo.
-        
-        INSTRUÇÕES DE CATEGORIZAÇÃO:
-        Utilize a seguinte estrutura de categorias para classificar a despesa. 
-        Escolha a categoria principal e a subcategoria que melhor descrevem os itens comprados.
-        
-        ${categoriesContext}
-        
-        Se houver múltiplos tipos de itens (ex: Alimento e Limpeza no mesmo cupom), categorize pelo que representa o maior valor ou use a categoria do estabelecimento (ex: Supermercado).
-        
-        Extraia: Local, Data (YYYY-MM-DD), Itens, Total, Categoria e Subcategoria (exatas da lista), e Forma de Pagamento.` }
-      ] },
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: expenseResponseSchema,
-      },
-    });
+export const CATEGORIES = EXPENSE_CATEGORIES;
 
-    if (!response.text) {
-        throw new Error('Resposta vazia da IA.');
-    }
+export const PAYMENT_METHODS = [
+  'Cartão de Crédito',
+  'Cartão de Débito',
+  'Pix',
+  'Dinheiro',
+  'Transferência Bancária',
+  'Boleto',
+  'Vale Refeição/Alimentação',
+  'Outro'
+];
 
-    const parsedData = JSON.parse(response.text);
-    
-    // Validação e Fallback para Categorias
-    let finalCategory = parsedData.category;
-    let finalSubcategory = parsedData.subcategory;
+export const DEFAULT_PROFILE_IMAGE = "https://ui-avatars.com/api/?background=0D8ABC&color=fff&name=User";
 
-    // Se a categoria retornada não existe na lista oficial, tenta corrigir ou usa 'Outros'
-    if (!CATEGORIES[finalCategory]) {
-        // Tenta encontrar se a subcategoria existe em alguma categoria principal
-        const foundEntry = Object.entries(CATEGORIES).find(([_, subs]) => subs.includes(finalSubcategory));
-        if (foundEntry) {
-            finalCategory = foundEntry[0];
-        } else {
-            finalCategory = 'Outros';
-            finalSubcategory = 'Não Identificado';
-        }
-    } else {
-        // Se a categoria existe, verifica se a subcategoria é válida para ela
-        if (!CATEGORIES[finalCategory].includes(finalSubcategory)) {
-            // Se não for, usa a primeira subcategoria disponível (geralmente a mais genérica)
-            finalSubcategory = CATEGORIES[finalCategory][0] || 'Outros';
-        }
-    }
-    
-    return {
-        localName: parsedData.localName || 'Desconhecido',
-        purchaseDate: parsedData.purchaseDate || new Date().toISOString().split('T')[0],
-        items: parsedData.items || [],
-        total: typeof parsedData.total === 'number' ? parsedData.total : 0,
-        category: finalCategory,
-        subcategory: finalSubcategory,
-        isRecurring: false,
-        paymentMethod: parsedData.paymentMethod || 'Outro',
-        type: 'expense'
-    };
-
-  } catch (error: any) {
-    console.error('Gemini Error Full:', JSON.stringify(error, null, 2));
-    
-    const errorMessage = error.message || '';
-    
-    // Identifica erro de API não habilitada ou chave inválida
-    if (
-        errorMessage.includes('API key not valid') || 
-        errorMessage.includes('Generative Language API has not been used') || 
-        error.status === 403 || 
-        error.status === 400 || // API key not valid is often 400
-        errorMessage.includes('PERMISSION_DENIED')
-    ) {
-        throw new Error('API_NOT_ENABLED');
-    }
-
-    throw new Error(`Erro ao processar imagem: ${errorMessage || 'Tente novamente.'}`);
-  }
+export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
+  email: true,
+  push: true,
 };
 
-export const extractTransactionsFromPdfText = async (pdfText: string): Promise<BankTransaction[]> => {
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: { parts: [{ text: `Analise o texto deste extrato bancário e extraia as transações financeiras em JSON. Ignore saldos e cabeçalhos. Texto: ${pdfText}` }] },
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: bankTransactionResponseSchema,
-      },
-    });
-    
-    if (!response.text) {
-        return [];
-    }
+export const DEFAULT_PRICING: PricingSettings = {
+  monthlyPrice: 29.90,
+  annualPrice: 199.90
+};
 
-    const parsedData = JSON.parse(response.text);
-    return Array.isArray(parsedData) ? parsedData : [];
+export const ROLE_LABELS: Record<UserRole, string> = {
+    user: 'Usuário',
+    admin: 'Admin',
+    super_admin: 'Super Admin',
+    operational_admin: 'Operacional',
+    support_admin: 'Suporte'
+};
 
-  } catch (error: any) {
-    console.error('Gemini PDF Error:', error);
-    
-    const errorMessage = error.message || '';
+export interface LevelInfo {
+    level: number;
+    title: string;
+    minXp: number;
+    maxXp: number;
+}
 
-    // Identifica erro de API não habilitada
-    if (
-        errorMessage.includes('API key not valid') ||
-        errorMessage.includes('Generative Language API has not been used') || 
-        error.status === 403 || 
-        error.status === 400 ||
-        errorMessage.includes('PERMISSION_DENIED')
-    ) {
-        throw new Error('API_NOT_ENABLED');
-    }
+export const LEVELS: LevelInfo[] = [
+    { level: 1, title: "Iniciante", minXp: 0, maxXp: 100 },
+    { level: 2, title: "Organizado", minXp: 101, maxXp: 500 },
+    { level: 3, title: "Poupador", minXp: 501, maxXp: 1500 },
+    { level: 4, title: "Investidor", minXp: 1501, maxXp: 3000 },
+    { level: 5, title: "Mestre", minXp: 3001, maxXp: 6000 },
+    { level: 6, title: "Magnata", minXp: 6001, maxXp: Infinity }
+];
 
-    throw new Error('Erro ao processar PDF.');
-  }
+export const getLevelInfo = (xp: number): LevelInfo => {
+    return LEVELS.find(l => xp >= l.minXp && xp <= l.maxXp) || LEVELS[LEVELS.length - 1];
 };

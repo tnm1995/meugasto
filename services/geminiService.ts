@@ -7,11 +7,17 @@ import { CATEGORIES } from '../types';
 // adhering to the requirement: const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 // Fallback to 'dummy-key' to prevent app crash on startup if key is missing.
 // The API call will catch the invalid key error gracefully.
-const apiKey = process.env.API_KEY || 'dummy-key';
+// NOTE: process.env.API_KEY is replaced by Vite at build time.
+const envApiKey = process.env.API_KEY;
+const apiKey = (envApiKey && envApiKey.trim() !== '') ? envApiKey : 'dummy-key';
 const ai = new GoogleGenAI({ apiKey: apiKey });
 
+// Helper para limpar blocos de código Markdown (```json ... ```) da resposta
+const cleanJsonString = (str: string) => {
+  return str.replace(/```json|```/g, '').trim();
+};
+
 // Cria uma representação de texto da árvore de categorias para o prompt
-// Ex: "Alimentação: [Supermercado, Restaurante...], Transporte: [Combustível...]"
 const categoriesContext = Object.entries(CATEGORIES)
   .map(([cat, subs]) => `${cat}: [${subs.join(', ')}]`)
   .join('\n');
@@ -36,11 +42,11 @@ const expenseResponseSchema = {
     total: { type: Type.NUMBER, description: "Valor total final da nota fiscal." },
     category: { 
       type: Type.STRING, 
-      description: `A Categoria Principal da despesa baseada na MAIORIA dos itens. Deve ser EXATAMENTE uma das chaves: ${Object.keys(CATEGORIES).join(', ')}` 
+      description: `A Categoria Principal da despesa baseada na MAIORIA dos itens e no TIPO DE ESTABELECIMENTO.` 
     },
     subcategory: { 
       type: Type.STRING, 
-      description: `A Subcategoria mais específica. Deve ser EXATAMENTE uma das opções listadas dentro da Categoria escolhida.` 
+      description: `A Subcategoria mais específica.` 
     },
     paymentMethod: { type: Type.STRING, description: "Método de pagamento identificado (Crédito, Débito, Pix, Dinheiro, VR, etc)." }
   },
@@ -67,32 +73,36 @@ export const extractExpenseFromImage = async (base64Image: string): Promise<Omit
       model: 'gemini-2.5-flash',
       contents: { parts: [
         { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
-        { text: `Você é um especialista em OCR de Cupons Fiscais Brasileiros (NFC-e, SAT, Cupom Fiscal).
+        { text: `Você é um especialista em OCR e Contabilidade Brasileira.
         
-        Sua tarefa é analisar a imagem e extrair os dados estruturados com precisão.
-        
-        1. ITENS (CRÍTICO): 
-           - Liste TODOS os produtos visíveis no "Corpo" do cupom.
-           - Ignore linhas de código (ex: "001", "789...") no início do nome. Ex: "001 LEITE" vira "LEITE".
-           - O preço deve ser o valor TOTAL do item (Quantidade x Unitário).
-        
-        2. CATEGORIZAÇÃO:
-           - Analise os itens extraídos.
-           - Use a lista abaixo para classificar a despesa.
-           - Se for um supermercado com itens variados (comida e limpeza), use "Alimentação" -> "Supermercado (Geral)".
-           - Se for apenas itens de jardinagem, use "Moradia" -> "Jardinagem / Plantas".
-           - Se for restaurante, use "Alimentação" -> "Restaurante / Almoço".
-        
-        ESTRUTURA DE CATEGORIAS VÁLIDAS:
-        ${categoriesContext}
-        
-        3. DADOS GERAIS:
-           - Local: Nome Fantasia da loja (topo do cupom).
-           - Data: Data de emissão (procure por data/hora).
+        Analise esta imagem de cupom fiscal (NFC-e, SAT, Cupom) e extraia os dados.
+
+        1. IDENTIFICAÇÃO DO LOCAL (CRÍTICO):
+           - Encontre o Nome Fantasia da loja no topo.
+           - Use o NOME DA LOJA para definir o contexto.
+           - Exemplo: "Centro de Jardinagem Junkes" -> O contexto é Jardinagem/Plantas, mesmo que o item seja "Pimenta" (provavelmente uma muda, não comida).
+           - Exemplo: "Loja dos Descontos" -> Analise os itens para decidir (provavelmente Supermercado ou Variedades).
+
+        2. EXTRAÇÃO DE ITENS:
+           - Liste TODOS os itens.
+           - Ignore códigos numéricos no início (ex: "001 PIMENTA" -> "PIMENTA").
+           - Preço deve ser o valor TOTAL do item.
+
+        3. CATEGORIZAÇÃO INTELIGENTE:
+           Use esta lista como referência estrita:
+           ${categoriesContext}
+
+           Regras:
+           - Se a loja for de Jardinagem, use Categoria: "Moradia", Subcategoria: "Jardinagem / Plantas".
+           - Se a loja for Supermercado, use Categoria: "Alimentação", Subcategoria: "Supermercado (Geral)".
+           - Se for Restaurante, use "Alimentação" -> "Restaurante / Almoço".
+
+        4. DADOS GERAIS:
+           - Data: Formato YYYY-MM-DD.
            - Total: Valor final pago.
-           - Pagamento: Forma de pagamento (ex: Crédito, Pix).
+           - Pagamento: Crédito, Débito, Pix, Dinheiro, etc.
         
-        Retorne APENAS o JSON conforme o schema.` }
+        Retorne APENAS o JSON válido conforme o schema.` }
       ] },
       config: {
         responseMimeType: 'application/json',
@@ -104,21 +114,31 @@ export const extractExpenseFromImage = async (base64Image: string): Promise<Omit
         throw new Error('Resposta vazia da IA.');
     }
 
-    const parsedData = JSON.parse(response.text);
+    const cleanedText = cleanJsonString(response.text);
+    const parsedData = JSON.parse(cleanedText);
     
     // Validação e Fallback para Categorias
     let finalCategory = parsedData.category;
     let finalSubcategory = parsedData.subcategory;
 
-    // Se a categoria retornada não existe na lista oficial, tenta corrigir ou usa 'Outros'
+    // Normalização básica se a IA alucinar categorias fora da lista
     if (!CATEGORIES[finalCategory]) {
         // Tenta encontrar se a subcategoria existe em alguma categoria principal
         const foundEntry = Object.entries(CATEGORIES).find(([_, subs]) => subs.includes(finalSubcategory));
         if (foundEntry) {
             finalCategory = foundEntry[0];
         } else {
-            finalCategory = 'Outros';
-            finalSubcategory = 'Não Identificado';
+            // Fallback inteligente baseado no nome do local se possível, ou Outros
+            if (parsedData.localName?.toLowerCase().includes('supermercado') || parsedData.localName?.toLowerCase().includes('atacad')) {
+                finalCategory = 'Alimentação';
+                finalSubcategory = 'Supermercado (Geral)';
+            } else if (parsedData.localName?.toLowerCase().includes('jardin') || parsedData.localName?.toLowerCase().includes('flor')) {
+                finalCategory = 'Moradia';
+                finalSubcategory = 'Jardinagem / Plantas';
+            } else {
+                finalCategory = 'Outros';
+                finalSubcategory = 'Não Identificado';
+            }
         }
     } else {
         // Se a categoria existe, verifica se a subcategoria é válida para ela
@@ -175,7 +195,8 @@ export const extractTransactionsFromPdfText = async (pdfText: string): Promise<B
         return [];
     }
 
-    const parsedData = JSON.parse(response.text);
+    const cleanedText = cleanJsonString(response.text);
+    const parsedData = JSON.parse(cleanedText);
     return Array.isArray(parsedData) ? parsedData : [];
 
   } catch (error: any) {
