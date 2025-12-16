@@ -1,6 +1,7 @@
 
 import type { User, UserRole } from '../types';
 import { auth, db, googleProvider, firebaseConfig } from './firebaseService';
+// @ts-ignore
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile, sendPasswordResetEmail as firebaseSendPasswordResetEmail, signInWithPopup, getAuth } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 // @ts-ignore

@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import type { User } from '../types';
-import { PremiumIcon, ChevronRightIcon, LogoutIcon, PolicyIcon, DescriptionIcon, SupportAgentIcon, TrophyIcon } from './Icons'; // Adicionado TrophyIcon
+import { PremiumIcon, ChevronRightIcon, LogoutIcon, PolicyIcon, DescriptionIcon, SupportAgentIcon, TrophyIcon, AdminPanelSettingsIcon } from './Icons'; // Adicionado AdminPanelSettingsIcon
 import { DEFAULT_PROFILE_IMAGE, getLevelInfo } from '../types'; // Import from types.ts, adicionado getLevelInfo
 import { useToast } from '../contexts/ToastContext'; // Importa useToast
 
@@ -14,6 +14,7 @@ interface ProfileProps {
   onOpenPrivacyPolicy: () => void;
   onOpenTermsOfService: () => void;
   onOpenSupport: () => void;
+  onOpenAdminPanel: () => void; // Nova prop
 }
 
 const compressImage = (file: File, maxWidth: number, maxHeight: number, quality: number, mimeType: string = 'image/jpeg'): Promise<string> => {
@@ -68,6 +69,7 @@ export const Profile: React.FC<ProfileProps> = ({
   onOpenPrivacyPolicy,
   onOpenTermsOfService,
   onOpenSupport,
+  onOpenAdminPanel
 }) => {
   const [fileInputKey, setFileInputKey] = useState(Date.now()); // Key to force re-render of file input
   const { showToast } = useToast(); // Hook para mostrar toasts
@@ -134,6 +136,9 @@ export const Profile: React.FC<ProfileProps> = ({
 
   // Gamification Info
   const levelInfo = getLevelInfo(userProfile.xp || 0);
+  
+  // Check if user is admin
+  const isAdmin = userProfile.role && ['admin', 'super_admin', 'operational_admin', 'support_admin'].includes(userProfile.role);
 
   if (isLoading && (!userProfile || !userProfile.uid)) { 
     return (
@@ -179,6 +184,26 @@ export const Profile: React.FC<ProfileProps> = ({
             <span className="text-sm font-bold text-yellow-800">{levelInfo.title} (Nível {levelInfo.level})</span>
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="bg-gradient-to-r from-gray-900 to-gray-800 p-1 rounded-2xl shadow-lg">
+            <button 
+                onClick={onOpenAdminPanel}
+                className="flex items-center justify-between w-full py-4 px-4 rounded-xl bg-white/10 hover:bg-white/20 transition-colors text-white"
+            >
+                <div className="flex items-center gap-3">
+                    <div className="bg-white/20 p-2 rounded-lg">
+                        <AdminPanelSettingsIcon className="text-xl" />
+                    </div>
+                    <div className="text-left">
+                        <span className="block font-bold text-sm">Painel Administrativo</span>
+                        <span className="block text-[10px] opacity-70">Gerenciar usuários e sistema</span>
+                    </div>
+                </div>
+                <ChevronRightIcon className="text-lg opacity-70" />
+            </button>
+        </div>
+      )}
 
       <div className="bg-white p-6 rounded-2xl shadow-sm space-y-4">
         <h3 className="text-lg font-semibold text-gray-700">Configurações</h3>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -560,7 +561,7 @@ const ComparisonSection = () => {
       opacity: 1,
       x: 0,
       rotate: -1,
-      transition: { type: "spring", stiffness: 50, damping: 20 }
+      transition: { type: "spring" as const, stiffness: 50, damping: 20 }
     }
   };
 
@@ -571,7 +572,7 @@ const ComparisonSection = () => {
       opacity: 1,
       x: 0,
       scale: 1,
-      transition: { type: "spring", stiffness: 70, damping: 15 }
+      transition: { type: "spring" as const, stiffness: 70, damping: 15 }
     }
   };
 
@@ -798,7 +799,7 @@ const HowItWorks = () => {
       opacity: 1, 
       y: 0, 
       scale: 1,
-      transition: { type: "spring", stiffness: 100, damping: 15, mass: 1 } 
+      transition: { type: "spring" as const, stiffness: 100, damping: 15, mass: 1 } 
     }
   };
 
@@ -809,7 +810,7 @@ const HowItWorks = () => {
       transition: { 
         duration: 2,
         times: [0, 0.35, 0.65, 1],
-        ease: "easeInOut" 
+        ease: "easeInOut" as const
       } 
     }
   };
@@ -822,7 +823,7 @@ const HowItWorks = () => {
       transition: { 
         duration: 2,
         times: [0, 0.35, 0.65, 1],
-        ease: "easeInOut" 
+        ease: "easeInOut" as const
       } 
     }
   };

@@ -6,6 +6,7 @@ import { LandingPage } from './components/LandingPage';
 import { MainAppContent } from './components/MainAppContent';
 import { ThankYouPage } from './components/ThankYouPage'; 
 import { auth, db, firebaseInitialized, firebaseInitializationError } from './services/firebaseService'; 
+// @ts-ignore
 import { onAuthStateChanged } from 'firebase/auth';
 import { getDoc, doc } from 'firebase/firestore'; 
 import { ToastProvider } from './contexts/ToastContext'; 
@@ -170,7 +171,7 @@ const App: React.FC = () => {
     }
 
     try {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        const unsubscribe = onAuthStateChanged(auth, async (user: any) => {
           if (user) {
             await validateUserSession(user.uid);
           } else {
@@ -181,7 +182,7 @@ const App: React.FC = () => {
             }
             setIsLoadingAuth(false);
           }
-        }, (error) => {
+        }, (error: any) => {
             console.error("Auth State Change Error:", error);
             setIsLoadingAuth(false);
         });
