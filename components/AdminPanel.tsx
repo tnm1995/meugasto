@@ -141,8 +141,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
     };
 
     useEffect(() => {
+        // Atualiza a lista periodicamente para refletir o status online (lastSeen)
         fetchUsers();
-    }, [showToast]);
+        
+        // Polling para atualizar o status online sem precisar de refresh
+        const interval = setInterval(fetchUsers, 60000); 
+        return () => clearInterval(interval);
+    }, []);
 
     // Fetch Logs Realtime
     useEffect(() => {
@@ -186,6 +191,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
             }).length
         };
     }, [users]);
+
+    // --- HELPER DE STATUS ONLINE ---
+    const isUserOnline = (user: User) => {
+        if (!user.lastSeen) return false;
+        
+        let lastSeenTime = 0;
+        if (user.lastSeen.toMillis) {
+            lastSeenTime = user.lastSeen.toMillis();
+        } else if (user.lastSeen.seconds) {
+            lastSeenTime = user.lastSeen.seconds * 1000;
+        } else if (user.lastSeen instanceof Date) {
+            lastSeenTime = user.lastSeen.getTime();
+        } else if (typeof user.lastSeen === 'string') {
+            lastSeenTime = new Date(user.lastSeen).getTime();
+        }
+
+        // Online se visto nos últimos 2 minutos
+        return (Date.now() - lastSeenTime) < 2 * 60 * 1000;
+    };
 
     // --- ACTIONS ---
 
@@ -585,7 +609,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                                     <div className="flex items-center">
                                                         <div className="flex-shrink-0 h-10 w-10 relative">
                                                             <img className="h-10 w-10 rounded-full object-cover border border-gray-200" src={user.profileImage || 'https://gravatar.com/avatar/?d=mp'} alt="" />
-                                                            <span className={`absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full ring-2 ring-white ${user.status === 'active' ? 'bg-green-400' : 'bg-red-400'}`}></span>
+                                                            {/* INDICADOR DE STATUS ONLINE / OFFLINE / BLOQUEADO */}
+                                                            <span className={`absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full ring-2 ring-white ${user.status === 'blocked' ? 'bg-red-500' : (isUserOnline(user) ? 'bg-green-500' : 'bg-gray-300')}`} title={user.status === 'blocked' ? 'Bloqueado' : (isUserOnline(user) ? 'Online' : 'Offline')}></span>
                                                         </div>
                                                         <div className="ml-4">
                                                             <div className="flex items-center gap-2">

@@ -53,8 +53,9 @@ export interface User {
     product: string;
   };
   
-  // Chat Fields
+  // Chat & Presence Fields
   lastChatClearedAt?: any; // Timestamp do Firestore para limpeza de chat do usuário
+  lastSeen?: any; // Timestamp do Firestore da última vez que o app esteve aberto (Heartbeat)
 }
 
 // Interface para Logs de Auditoria do Admin
@@ -141,7 +142,7 @@ export interface Ticket {
   // Typing Indicators & Presence
   isUserTyping?: boolean;
   isSupportTyping?: boolean;
-  userLastActive?: any; // Timestamp do Heartbeat do usuário
+  userLastActive?: any; // Mantido para compatibilidade com lógica antiga de chat, mas preferir user.lastSeen
 }
 
 export interface ReminderSettings {

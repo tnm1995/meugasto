@@ -52,15 +52,18 @@ const App: React.FC = () => {
 
     const updatePresence = async () => {
         try {
-            // Tenta atualizar o ticket de suporte com o status online (lastActive)
-            // Usamos updateDoc para não criar tickets desnecessários se o usuário nunca interagiu
-            const ticketRef = doc(db, 'tickets', currentUser.uid);
-            await updateDoc(ticketRef, { 
-                userLastActive: serverTimestamp() 
+            // Atualiza documento do USUÁRIO (para lista de usuários no Admin)
+            const userRef = doc(db, 'users', currentUser.uid);
+            await updateDoc(userRef, { 
+                lastSeen: serverTimestamp() 
             });
+
+            // Tenta atualizar também o ticket para o chat, se existir (sem criar erro se não existir)
+            // Isso garante compatibilidade com o chat de suporte
+            const ticketRef = doc(db, 'tickets', currentUser.uid);
+            updateDoc(ticketRef, { userLastActive: serverTimestamp() }).catch(() => {});
         } catch (e) {
-            // Se o documento não existe (usuário nunca abriu chat), ignoramos silenciosamente
-            // O status online é prioritariamente para quem já tem interação com suporte
+            console.error("Error updating presence:", e);
         }
     };
 
@@ -241,9 +244,8 @@ const App: React.FC = () => {
       // Tentar atualizar status para offline (best effort)
       if (currentUser?.uid) {
           try {
-              const ticketRef = doc(db, 'tickets', currentUser.uid);
-              // Define uma data antiga para forçar offline
-              await updateDoc(ticketRef, { userLastActive: new Date(0) });
+              const userRef = doc(db, 'users', currentUser.uid);
+              await updateDoc(userRef, { lastSeen: new Date(0) }); // Força offline
           } catch(e) {}
       }
       
