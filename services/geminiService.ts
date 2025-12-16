@@ -5,7 +5,10 @@ import { CATEGORIES } from '../types';
 
 // Initialize the Gemini API client directly with the environment variable
 // adhering to the requirement: const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Fallback to 'dummy-key' to prevent app crash on startup if key is missing.
+// The API call will catch the invalid key error gracefully.
+const apiKey = process.env.API_KEY || 'dummy-key';
+const ai = new GoogleGenAI({ apiKey: apiKey });
 
 const categoryList = Object.keys(CATEGORIES).join(', ');
 
