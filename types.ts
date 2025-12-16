@@ -117,6 +117,8 @@ export interface ChatMessage {
   sender: 'user' | 'support' | 'system';
   timestamp: any; // Firestore Timestamp
   read: boolean;
+  attachmentUrl?: string; // URL da imagem/arquivo
+  attachmentType?: 'image' | 'file'; // Tipo do anexo
 }
 
 // --- TIPOS DO SISTEMA DE TICKETS ---

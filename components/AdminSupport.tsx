@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { db } from '../services/firebaseService';
+import { db, storage } from '../services/firebaseService';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, addDoc, serverTimestamp, getDocs, where } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Ticket, TicketStatus, TicketTag, ChatMessage, User } from '../types';
 import { useToast } from '../contexts/ToastContext';
 import { 
@@ -11,7 +12,8 @@ import {
     SendIcon, 
     DescriptionIcon, 
     MoreVertIcon, 
-    XMarkIcon 
+    XMarkIcon,
+    PaperClipIcon
 } from './Icons';
 import { motion } from 'framer-motion';
 
@@ -50,6 +52,10 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
     // Ticket Details State (Optimistic UI)
     const [internalNote, setInternalNote] = useState('');
     const [loadingMessages, setLoadingMessages] = useState(false);
+
+    // File Upload State
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const { showToast } = useToast();
@@ -114,24 +120,61 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
         }, 2000);
     };
 
-    const handleSendMessage = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!replyText.trim() || !selectedTicketId) return;
+    const handleFileSelect = () => {
+        if (fileInputRef.current) {
+            fileInputRef.current.click();
+        }
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !selectedTicketId) return;
+
+        setIsUploading(true);
+        try {
+            // Cria uma referência no Storage: chat_attachments/{userId}/{timestamp}_{filename}
+            // Aqui usamos o selectedTicketId (que é o userId)
+            const storageRef = ref(storage, `chat_attachments/${selectedTicketId}/${Date.now()}_${file.name}`);
+            
+            // Upload
+            await uploadBytes(storageRef, file);
+            
+            // Get URL
+            const downloadURL = await getDownloadURL(storageRef);
+            
+            // Send message with image
+            await sendMessage(undefined, downloadURL, 'image');
+            
+        } catch (error) {
+            console.error("Upload error:", error);
+            showToast("Erro ao enviar imagem.", "error");
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const sendMessage = async (text?: string, attachmentUrl?: string, attachmentType?: 'image' | 'file') => {
+        if (!selectedTicketId) return;
+        const msgText = text !== undefined ? text : replyText.trim();
+        if (!msgText && !attachmentUrl) return;
 
         try {
             // 1. Add to User's subcollection
             const messagesRef = collection(db, 'users', selectedTicketId, 'support_messages');
             await addDoc(messagesRef, {
-                text: replyText,
+                text: msgText,
                 sender: 'support',
                 timestamp: serverTimestamp(),
-                read: false
+                read: false,
+                attachmentUrl: attachmentUrl || undefined,
+                attachmentType: attachmentType || undefined
             });
 
             // 2. Update Ticket Metadata
             const ticketRef = doc(db, 'tickets', selectedTicketId);
             await updateDoc(ticketRef, {
-                lastMessage: replyText,
+                lastMessage: attachmentUrl ? (msgText || 'Enviou um anexo') : msgText,
                 lastMessageSender: 'support',
                 updatedAt: serverTimestamp(),
                 status: 'in_progress', // Auto move to in progress
@@ -139,12 +182,19 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
                 isSupportTyping: false // Stop typing indicator
             });
 
-            setReplyText('');
-            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+            if (!attachmentUrl) {
+                setReplyText('');
+                if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+            }
         } catch (error) {
             console.error(error);
             showToast('Erro ao enviar mensagem.', 'error');
         }
+    };
+
+    const handleSendMessage = (e: React.FormEvent) => {
+        e.preventDefault();
+        sendMessage();
     };
 
     const updateTicketField = async (field: keyof Ticket, value: any) => {
@@ -309,6 +359,16 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
                             return (
                                 <div key={msg.id} className={`flex ${isSupport ? 'justify-end' : 'justify-start'}`}>
                                     <div className={`max-w-[70%] p-3 rounded-2xl text-sm shadow-sm ${isSupport ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-white border border-gray-200 text-gray-700 rounded-tl-none'}`}>
+                                        {msg.attachmentUrl && (
+                                            <div className="mb-2">
+                                                <img 
+                                                    src={msg.attachmentUrl} 
+                                                    alt="Anexo" 
+                                                    className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity max-h-48 object-cover" 
+                                                    onClick={() => window.open(msg.attachmentUrl, '_blank')}
+                                                />
+                                            </div>
+                                        )}
                                         <p>{msg.text}</p>
                                         <span className={`text-[10px] block mt-1 opacity-70 ${isSupport ? 'text-blue-100 text-right' : 'text-gray-400'}`}>
                                             {msg.timestamp?.toDate ? msg.timestamp.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '...'}
@@ -350,21 +410,45 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
                                 </button>
                             ))}
                         </div>
-                        <form onSubmit={handleSendMessage} className="relative">
-                            <input 
-                                type="text" 
-                                value={replyText}
-                                onChange={handleInputChange}
-                                placeholder="Escreva uma resposta..."
-                                className="w-full pl-4 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-sm"
-                            />
-                            <button 
-                                type="submit"
-                                disabled={!replyText.trim()}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        <form onSubmit={handleSendMessage} className="relative flex items-end gap-2">
+                            {/* Botão de Anexo */}
+                            <button
+                                type="button"
+                                onClick={handleFileSelect}
+                                disabled={isUploading}
+                                className="text-gray-400 hover:text-blue-600 p-3 rounded-xl bg-gray-50 border border-gray-200 hover:bg-blue-50 transition-colors flex-shrink-0"
+                                title="Enviar print/arquivo"
                             >
-                                <SendIcon className="text-sm" />
+                                {isUploading ? (
+                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                                ) : (
+                                    <PaperClipIcon className="text-xl" />
+                                )}
                             </button>
+                            <input 
+                                type="file" 
+                                ref={fileInputRef} 
+                                onChange={handleFileUpload} 
+                                className="hidden" 
+                                accept="image/*,.pdf" 
+                            />
+
+                            <div className="relative flex-1">
+                                <input 
+                                    type="text" 
+                                    value={replyText}
+                                    onChange={handleInputChange}
+                                    placeholder="Escreva uma resposta..."
+                                    className="w-full pl-4 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-sm"
+                                />
+                                <button 
+                                    type="submit"
+                                    disabled={(!replyText.trim() && !isUploading)}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                >
+                                    <SendIcon className="text-sm" />
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>

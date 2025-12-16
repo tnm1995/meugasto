@@ -93,3 +93,4 @@ export const BoltIcon: React.FC<IconProps> = ({ className }) => <MaterialIcon ic
 // Support Chat Icons
 export const ChatBubbleIcon: React.FC<IconProps> = ({ className }) => <MaterialIcon iconName="chat_bubble" className={className} />;
 export const SendIcon: React.FC<IconProps> = ({ className }) => <MaterialIcon iconName="send" className={className} />;
+export const PaperClipIcon: React.FC<IconProps> = ({ className }) => <MaterialIcon iconName="attach_file" className={className} />;

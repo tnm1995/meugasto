@@ -6,6 +6,8 @@ import { getAuth, type Auth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 // @ts-ignore
 import { getAnalytics } from 'firebase/analytics';
+// @ts-ignore
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
 // Função segura para acessar variáveis de ambiente em diferentes ambientes (Vite, Create React App, etc)
 const getEnv = (key: string, fallback: string): string => {
@@ -44,6 +46,7 @@ type Analytics = any;
 let app: FirebaseAppType;
 let auth: Auth;
 let db: Firestore;
+let storage: FirebaseStorage;
 let analytics: Analytics | null = null;
 const googleProvider = new GoogleAuthProvider();
 
@@ -59,6 +62,7 @@ try {
   app = initializeApp(firebaseConfig);
   db = getFirestore(app);
   auth = getAuth(app);
+  storage = getStorage(app);
   
   if (typeof window !== 'undefined') {
     try {
@@ -80,6 +84,8 @@ try {
   auth = {} as Auth;
   // @ts-ignore
   db = {} as Firestore;
+  // @ts-ignore
+  storage = {} as FirebaseStorage;
 }
 
-export { app, auth, db, analytics, googleProvider, firebaseInitialized, firebaseInitializationError };
+export { app, auth, db, storage, analytics, googleProvider, firebaseInitialized, firebaseInitializationError };

@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { XMarkIcon, SupportAgentIcon, SendIcon } from './Icons';
+import { XMarkIcon, SupportAgentIcon, SendIcon, PaperClipIcon } from './Icons';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { ChatMessage, User, Omit, TicketStatus } from '../types';
 import { orderBy, serverTimestamp, doc, setDoc, updateDoc, getDoc, increment, onSnapshot } from 'firebase/firestore';
-import { db } from '../services/firebaseService';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../services/firebaseService';
 import { useToast } from '../contexts/ToastContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -67,6 +68,10 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
   // Typing Indicator Logic
   const [isSupportTyping, setIsSupportTyping] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // File Upload State
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -187,55 +192,96 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
       onClose();
   };
 
+  const handleFileSelect = () => {
+      if (fileInputRef.current) {
+          fileInputRef.current.click();
+      }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || !currentUser?.uid) return;
+
+      setIsUploading(true);
+      try {
+          // Cria uma referência no Storage: chat_attachments/{userId}/{timestamp}_{filename}
+          const storageRef = ref(storage, `chat_attachments/${currentUser.uid}/${Date.now()}_${file.name}`);
+          
+          // Upload
+          await uploadBytes(storageRef, file);
+          
+          // Get URL
+          const downloadURL = await getDownloadURL(storageRef);
+          
+          // Send message with image
+          await sendMessage(undefined, downloadURL, 'image');
+          
+      } catch (error) {
+          console.error("Upload error:", error);
+          showToast("Erro ao enviar imagem.", "error");
+      } finally {
+          setIsUploading(false);
+          // Limpa o input para permitir selecionar o mesmo arquivo novamente se quiser
+          if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+  };
+
+  const sendMessage = async (text?: string, attachmentUrl?: string, attachmentType?: 'image' | 'file') => {
+      if (!currentUser) return;
+      
+      const msgText = text !== undefined ? text : newMessage.trim();
+      if (!msgText && !attachmentUrl) return;
+
+      try {
+        // 1. Salva a mensagem na subcoleção do usuário (histórico)
+        const messageData: Omit<ChatMessage, 'id'> = {
+          text: msgText,
+          sender: 'user',
+          timestamp: serverTimestamp(),
+          read: false,
+          attachmentUrl: attachmentUrl || undefined,
+          attachmentType: attachmentType || undefined
+        };
+  
+        await addDocument(messageData);
+  
+        // 2. Cria ou Atualiza o Ticket na coleção root 'tickets' para o Admin ver
+        const ticketRef = doc(db, 'tickets', currentUser.uid);
+        const ticketSnap = await getDoc(ticketRef);
+  
+        const ticketPayload = {
+            userId: currentUser.uid,
+            userName: currentUser.name || 'Usuário',
+            userEmail: currentUser.email || '',
+            lastMessage: attachmentUrl ? (msgText || 'Enviou um anexo') : msgText,
+            lastMessageSender: 'user',
+            updatedAt: serverTimestamp(),
+            // Se já existe, mantém o status atual (a menos que esteja resolvido, aí reabre). Se não, cria como 'open'.
+            status: ticketSnap.exists() && ticketSnap.data().status !== 'resolved' ? ticketSnap.data().status : 'open',
+            unreadCount: increment(1), // Incrementa contador de não lidas para o admin
+            isUserTyping: false, // Stop typing indicator on send
+            // Atualiza atividade para aparecer online pro admin
+            userLastActive: serverTimestamp()
+        };
+  
+        await setDoc(ticketRef, ticketPayload, { merge: true });
+  
+        if (!attachmentUrl) {
+            setNewMessage('');
+            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+            if (textareaRef.current) textareaRef.current.style.height = 'auto';
+        }
+      } catch (error) {
+        console.error("Error sending message:", error);
+        showToast("Erro ao enviar mensagem.", 'error');
+      }
+  };
+
   if (!isOpen) return null;
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
-
-    if (!currentUser) {
-        return;
-    }
-
-    try {
-      // 1. Salva a mensagem na subcoleção do usuário (histórico)
-      const messageData: Omit<ChatMessage, 'id'> = {
-        text: newMessage.trim(),
-        sender: 'user',
-        timestamp: serverTimestamp(),
-        read: false
-      };
-
-      await addDocument(messageData);
-
-      // 2. Cria ou Atualiza o Ticket na coleção root 'tickets' para o Admin ver
-      const ticketRef = doc(db, 'tickets', currentUser.uid);
-      const ticketSnap = await getDoc(ticketRef);
-
-      const ticketPayload = {
-          userId: currentUser.uid,
-          userName: currentUser.name || 'Usuário',
-          userEmail: currentUser.email || '',
-          lastMessage: newMessage.trim(),
-          lastMessageSender: 'user',
-          updatedAt: serverTimestamp(),
-          // Se já existe, mantém o status atual (a menos que esteja resolvido, aí reabre). Se não, cria como 'open'.
-          status: ticketSnap.exists() && ticketSnap.data().status !== 'resolved' ? ticketSnap.data().status : 'open',
-          unreadCount: increment(1), // Incrementa contador de não lidas para o admin
-          isUserTyping: false, // Stop typing indicator on send
-          // Atualiza atividade para aparecer online pro admin
-          userLastActive: serverTimestamp()
-      };
-
-      await setDoc(ticketRef, ticketPayload, { merge: true });
-
-      setNewMessage('');
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-      if (textareaRef.current) textareaRef.current.style.height = 'auto';
-    } catch (error) {
-      console.error("Error sending message:", error);
-      showToast("Erro ao enviar mensagem.", 'error');
-    }
+    await sendMessage();
   };
 
   const handleGuestSubmit = async (e: React.FormEvent) => {
@@ -389,6 +435,16 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
                   <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'} ${isLastInGroup ? 'mb-3' : 'mb-1'} group`}>
                       <div className={`max-w-[80%] relative ${isUser ? 'items-end' : 'items-start'} flex flex-col`}>
                           <div className={`px-4 py-2.5 text-sm shadow-sm relative break-words w-full ${borderRadiusClass} ${isUser ? 'bg-black text-white' : 'bg-white text-gray-800 border border-gray-100'}`}>
+                              {msg.attachmentUrl && (
+                                <div className="mb-2">
+                                    <img 
+                                        src={msg.attachmentUrl} 
+                                        alt="Anexo" 
+                                        className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity max-h-48 object-cover" 
+                                        onClick={() => window.open(msg.attachmentUrl, '_blank')}
+                                    />
+                                </div>
+                              )}
                               {msg.text}
                           </div>
                           {isLastInGroup && <span className={`text-[10px] mt-1 px-1 ${isUser ? 'text-gray-400 text-right' : 'text-gray-400 text-left'}`}>{timeString}</span>}
@@ -465,6 +521,16 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
                     <div className="h-full overflow-y-auto p-4 space-y-1 custom-scrollbar">
                         {renderMessages()}
                         
+                        {/* Upload Loading Indicator */}
+                        {isUploading && (
+                            <div className="flex justify-end mb-2">
+                                <div className="bg-gray-100 p-3 rounded-2xl rounded-tr-none shadow-sm flex items-center gap-2">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                    <span className="text-xs text-gray-500">Enviando arquivo...</span>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Support Typing Indicator */}
                         {isSupportTyping && (
                             <div className="flex justify-start mb-2">
@@ -486,23 +552,41 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
             {currentUser && (
                 <div className="p-3 bg-white border-t border-gray-100 z-20">
                 <form onSubmit={handleSendMessage} className="flex items-end gap-2 bg-gray-50 p-1.5 rounded-[1.5rem] border border-gray-200 focus-within:border-gray-400 focus-within:ring-4 focus-within:ring-gray-100 transition-all shadow-sm">
+                    {/* Botão de Anexo */}
+                    <button
+                        type="button"
+                        onClick={handleFileSelect}
+                        disabled={isUploading}
+                        className="text-gray-400 hover:text-blue-600 p-2 rounded-full hover:bg-blue-50 transition-colors mb-0.5 ml-1 flex-shrink-0"
+                        title="Enviar print/arquivo"
+                    >
+                        <PaperClipIcon className="text-xl" />
+                    </button>
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        onChange={handleFileUpload} 
+                        className="hidden" 
+                        accept="image/*,.pdf" // Aceita imagens e PDF
+                    />
+
                     <textarea
-                    ref={textareaRef}
-                    value={newMessage}
-                    onChange={handleInputChange}
-                    placeholder="Digite sua mensagem..."
-                    className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-gray-800 placeholder-gray-400 resize-none max-h-32 py-3 px-4 min-h-[44px]"
-                    rows={1}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage(e);
-                        }
-                    }}
+                        ref={textareaRef}
+                        value={newMessage}
+                        onChange={handleInputChange}
+                        placeholder="Digite sua mensagem..."
+                        className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-gray-800 placeholder-gray-400 resize-none max-h-32 py-3 px-2 min-h-[44px]"
+                        rows={1}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage(e);
+                            }
+                        }}
                     />
                     <button 
                         type="submit" 
-                        disabled={!newMessage.trim()}
+                        disabled={!newMessage.trim() && !isUploading}
                         className="
                             group flex items-center justify-center shrink-0
                             w-11 h-11 rounded-full 
