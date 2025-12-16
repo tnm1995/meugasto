@@ -146,20 +146,49 @@ export type DocumentWithId<T> = T & { id: string };
 // Constants
 
 export const EXPENSE_CATEGORIES: Record<string, string[]> = {
-  'Alimentação': ['Supermercado (Geral)', 'Restaurante / Almoço', 'Lanches / Café', 'Bebidas', 'Delivery'],
-  'Moradia': ['Aluguel / Condomínio', 'Energia Elétrica', 'Água / Esgoto', 'Internet / TV', 'Gás', 'Manutenção / Reparos', 'Jardinagem / Plantas', 'Móveis / Decoração'],
-  'Transporte': ['Combustível', 'Uber / 99 / Táxi', 'Transporte Público', 'Manutenção Veículo', 'Estacionamento', 'IPVA / Licenciamento', 'Seguro Auto'],
-  'Lazer': ['Cinema / Teatro', 'Shows / Eventos', 'Viagens / Turismo', 'Hospedagem', 'Bares / Baladas', 'Hobbies', 'Streaming / Assinaturas'],
-  'Saúde': ['Farmácia / Remédios', 'Consultas / Exames', 'Plano de Saúde', 'Terapia / Psicólogo', 'Academia / Esportes', 'Dentista'],
-  'Cuidados Pessoais': ['Cabeleireiro / Barbeiro', 'Estética / Manicure', 'Cosméticos / Perfumaria', 'Higiene Pessoal'],
-  'Vestuário': ['Roupas', 'Calçados', 'Acessórios', 'Lavanderia'],
-  'Educação': ['Faculdade / Escola', 'Cursos Online', 'Livros / Material', 'Idiomas'],
-  'Compras': ['Eletrônicos', 'Eletrodomésticos', 'Presentes', 'Variedades'],
-  'Serviços': ['Seguro de Vida', 'Serviços Bancários', 'Limpeza / Diarista', 'Outros Serviços'],
-  'Impostos e Taxas': ['Imposto de Renda', 'IPTU', 'Taxas Bancárias', 'Outros Impostos'],
-  'Investimentos': ['Renda Fixa', 'Ações / Bolsa', 'Previdência Privada', 'Criptomoedas', 'Reserva de Emergência'],
-  'Dívidas e Empréstimos': ['Fatura Cartão de Crédito', 'Financiamento Imóvel', 'Financiamento Veículo', 'Empréstimo Pessoal'],
-  'Outros': ['Doações', 'Imprevistos', 'Não Identificado']
+  'Alimentação': [
+    'Supermercado (Geral)', 'Restaurante / Almoço', 'Lanches / Fast Food', 'Padaria / Café', 
+    'Açougue / Peixaria', 'Hortifruti / Feira', 'Bebidas', 'Delivery (iFood/Rappi)', 'Doces e Sobremesas'
+  ],
+  'Moradia': [
+    'Aluguel / Condomínio', 'Energia Elétrica', 'Água e Esgoto', 'Gás', 'Internet / TV / Celular', 
+    'Produtos de Limpeza', 'Manutenção e Reparos', 'Jardinagem / Plantas', 'Artigos para o Lar', 'IPTU'
+  ],
+  'Transporte': [
+    'Combustível', 'Uber / 99 / Táxi', 'Transporte Público', 'Manutenção Veicular', 'Estacionamento', 
+    'Pedágio', 'IPVA / Licenciamento', 'Seguro Auto'
+  ],
+  'Saúde e Higiene': [
+    'Farmácia / Medicamentos', 'Higiene Pessoal', 'Cosméticos', 'Consultas Médicas', 'Exames', 
+    'Plano de Saúde', 'Dentista', 'Academia / Esportes'
+  ],
+  'Lazer': [
+    'Cinema / Teatro / Shows', 'Streaming', 'Bares e Baladas', 'Viagens', 'Jogos', 'Livros', 'Hobbies'
+  ],
+  'Educação': [
+    'Mensalidade Escolar', 'Cursos', 'Material Escolar', 'Livros Técnicos'
+  ],
+  'Vestuário': [
+    'Roupas', 'Calçados', 'Acessórios', 'Lavanderia'
+  ],
+  'Compras': [
+    'Eletrônicos', 'Eletrodomésticos', 'Celulares', 'Presentes', 'Brinquedos'
+  ],
+  'Serviços': [
+    'Assinaturas', 'Serviços Bancários', 'Cabeleireiro / Barbeiro', 'Manicure', 'Serviços Profissionais'
+  ],
+  'Pets': [
+    'Ração e Petiscos', 'Veterinário', 'Banho e Tosa', 'Acessórios Pet'
+  ],
+  'Investimentos': [
+    'Aporte Mensal', 'Previdência', 'Reserva de Emergência', 'Cripto'
+  ],
+  'Dívidas': [
+    'Cartão de Crédito', 'Empréstimo', 'Financiamento'
+  ],
+  'Outros': [
+    'Doações', 'Imprevistos', 'Saques', 'Não Identificado'
+  ]
 };
 
 export const INCOME_CATEGORIES: Record<string, string[]> = {

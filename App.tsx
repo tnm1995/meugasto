@@ -1,6 +1,6 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import type { User, View } from './types';
+import { DEFAULT_PROFILE_IMAGE, DEFAULT_REMINDER_SETTINGS } from './types';
 import { Auth } from './components/Auth';
 import { LandingPage } from './components/LandingPage';
 import { MainAppContent } from './components/MainAppContent';
@@ -124,7 +124,11 @@ const App: React.FC = () => {
                 name: auth.currentUser?.displayName || 'Usuário',
                 email: auth.currentUser?.email || '',
                 role: 'user',
-                status: 'active'
+                status: 'active',
+                profileImage: DEFAULT_PROFILE_IMAGE,
+                reminderSettings: DEFAULT_REMINDER_SETTINGS,
+                createdAt: new Date().toISOString(),
+                subscriptionExpiresAt: null
             };
         }
 

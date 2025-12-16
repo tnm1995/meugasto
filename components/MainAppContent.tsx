@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useMemo, useEffect, Suspense, lazy } from 'react';
 import type { Expense, View, User, Budget, Goal, Reminder, Omit, SavingsGoal } from '../types';
 // Importa componentes via React.lazy
@@ -165,7 +164,20 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
   }, [currentUser, loadingUserDoc, userDataFromFirestore]);
 
   const userProfile: User = useMemo(() => {
-    const baseProfile: User = { uid: currentUser.uid, name: currentUser.name || currentUser.email?.split('@')[0] || 'Usuário', email: currentUser.email || '', phone: currentUser.phone || '', profileImage: DEFAULT_PROFILE_IMAGE, reminderSettings: DEFAULT_REMINDER_SETTINGS, role: 'user', status: 'active', xp: 0, currentStreak: 0 };
+    const baseProfile: User = { 
+        uid: currentUser.uid, 
+        name: currentUser.name || currentUser.email?.split('@')[0] || 'Usuário', 
+        email: currentUser.email || '', 
+        phone: currentUser.phone || '', 
+        profileImage: DEFAULT_PROFILE_IMAGE, 
+        reminderSettings: DEFAULT_REMINDER_SETTINGS, 
+        role: 'user', 
+        status: 'active', 
+        xp: 0, 
+        currentStreak: 0,
+        createdAt: currentUser.createdAt || new Date().toISOString(),
+        subscriptionExpiresAt: currentUser.subscriptionExpiresAt || null
+    };
     if (loadingUserDoc || !userDataFromFirestore) return baseProfile;
     return { ...baseProfile, ...userDataFromFirestore, profileImage: userDataFromFirestore.profileImage || DEFAULT_PROFILE_IMAGE, reminderSettings: userDataFromFirestore.reminderSettings || DEFAULT_REMINDER_SETTINGS, xp: userDataFromFirestore.xp || 0, currentStreak: userDataFromFirestore.currentStreak || 0 };
   }, [currentUser, userDataFromFirestore, loadingUserDoc]);

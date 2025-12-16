@@ -60,6 +60,8 @@ export const register = async (name: string, email: string, password: string, ph
             errorMessage = 'Endereço de e-mail inválido.';
         } else if (error.code === 'auth/weak-password') {
             errorMessage = 'A senha é muito fraca.';
+        } else if (error.message && error.message.includes('blocked')) {
+            errorMessage = 'Erro de configuração da API (Chave Bloqueada/Restrita).';
         }
         return { success: false, message: errorMessage };
     }
@@ -148,6 +150,10 @@ export const login = async (email: string, password: string): Promise<{ success:
                 phone: '',
                 role: 'user',
                 status: 'active',
+                profileImage: DEFAULT_PROFILE_IMAGE,
+                reminderSettings: DEFAULT_REMINDER_SETTINGS,
+                createdAt: new Date().toISOString(),
+                subscriptionExpiresAt: null,
             };
         }
 
@@ -156,6 +162,8 @@ export const login = async (email: string, password: string): Promise<{ success:
     } catch (error: any) {
         console.error("Firebase login error:", error);
         let errorMessage = 'Ocorreu um erro durante o login. Tente novamente.';
+        
+        // Error Handling específico
         if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
             errorMessage = 'Email ou senha inválidos.';
         } else if (error.code === 'auth/invalid-email') {
@@ -164,7 +172,11 @@ export const login = async (email: string, password: string): Promise<{ success:
              errorMessage = 'Problema de conexão. Verifique sua internet e tente novamente.';
         } else if (error.code === 'auth/too-many-requests') {
             errorMessage = 'Muitas tentativas de login. Tente novamente mais tarde.';
+        } else if (error.message && error.message.includes('blocked')) {
+            // "Requests to this API identitytoolkit... are blocked"
+            errorMessage = 'Erro de API: Acesso bloqueado. Verifique a configuração da chave de API no Google Cloud Console (Identity Toolkit).';
         }
+        
         return { success: false, message: errorMessage };
     }
 };
@@ -217,6 +229,8 @@ export const loginWithGoogle = async (): Promise<{ success: boolean, user?: User
             errorMessage = 'O navegador bloqueou o popup de login. Permita popups para este site.';
         } else if (error.code === 'auth/account-exists-with-different-credential') {
             errorMessage = 'Já existe uma conta com este email associada a outro método de login.';
+        } else if (error.message && error.message.includes('blocked')) {
+            errorMessage = 'Erro de API: Acesso ao Identity Toolkit bloqueado.';
         }
         return { success: false, message: errorMessage };
     }
@@ -251,6 +265,8 @@ export const sendPasswordResetEmail = async (email: string): Promise<{ success: 
             errorMessage = 'Nenhum usuário encontrado com este e-mail.';
         } else if (error.code === 'auth/network-request-failed') {
              errorMessage = 'Problema de conexão. Verifique sua internet e tente novamente.';
+        } else if (error.message && error.message.includes('blocked')) {
+            errorMessage = 'Erro de API: Envio de email bloqueado.';
         }
         return { success: false, message: errorMessage };
     }

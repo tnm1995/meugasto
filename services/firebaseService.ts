@@ -55,7 +55,7 @@ let firebaseInitializationError: any = null;
 
 try {
   // Verificação simples para alertar o desenvolvedor no VS Code se as chaves estiverem faltando
-  if (firebaseConfig.apiKey === "AIzaSyCxoflM16AOIdWq7ej3B9wkNNXaEXRwQUE" && window.location.hostname === "localhost") {
+  if (firebaseConfig.apiKey === "AIzaSyCxoflM16AOIdWq7ej3B9wkNNXaEXRwQUE" && typeof window !== 'undefined' && window.location.hostname === "localhost") {
      console.warn("⚠️ AVISO: Você parece estar usando as chaves de API padrão/fallback. Para desenvolvimento local, crie um arquivo .env na raiz do projeto com suas credenciais reais (VITE_FIREBASE_...).");
   }
 
@@ -66,7 +66,16 @@ try {
   
   if (typeof window !== 'undefined') {
     try {
-      analytics = getAnalytics(app);
+      // Prevent 403 errors by only initializing Analytics if we are NOT using the fallback measurement ID,
+      // or if we are explicitly sure the API key supports it. 
+      // The default fallback key often lacks permissions for the Installations API (required by Analytics).
+      const isFallbackConfig = firebaseConfig.measurementId === "G-NC93789KE9";
+      
+      if (!isFallbackConfig) {
+        analytics = getAnalytics(app);
+      } else {
+        console.debug("Firebase Analytics skipped to prevent 403 errors with default config.");
+      }
     } catch (e) {
       console.warn("Analytics initialization failed:", e);
     }

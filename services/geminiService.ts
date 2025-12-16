@@ -7,7 +7,7 @@ import { CATEGORIES } from '../types';
 // adhering to the requirement: const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 // Fallback to 'dummy-key' to prevent app crash on startup if key is missing.
 // The API call will catch the invalid key error gracefully.
-// NOTE: process.env.API_KEY is replaced by Vite at build time.
+// NOTE: process.env.API_KEY is replaced by Vite at build time via define in vite.config.ts.
 const envApiKey = process.env.API_KEY;
 const apiKey = (envApiKey && envApiKey.trim() !== '') ? envApiKey : 'dummy-key';
 const ai = new GoogleGenAI({ apiKey: apiKey });
@@ -80,8 +80,8 @@ export const extractExpenseFromImage = async (base64Image: string): Promise<Omit
         1. IDENTIFICAÇÃO DO LOCAL (CRÍTICO):
            - Encontre o Nome Fantasia da loja no topo.
            - Use o NOME DA LOJA para definir o contexto.
-           - Exemplo: "Centro de Jardinagem Junkes" -> O contexto é Jardinagem/Plantas, mesmo que o item seja "Pimenta" (provavelmente uma muda, não comida).
-           - Exemplo: "Loja dos Descontos" -> Analise os itens para decidir (provavelmente Supermercado ou Variedades).
+           - Exemplo: "Centro de Jardinagem Junkes" -> O contexto é "Moradia" -> "Jardinagem / Plantas", mesmo que o item seja "Pimenta" (provavelmente uma muda).
+           - Exemplo: "Loja dos Descontos" -> Analise os itens para decidir (provavelmente "Alimentação" -> "Supermercado" ou "Compras").
 
         2. EXTRAÇÃO DE ITENS:
            - Liste TODOS os itens.
@@ -93,9 +93,8 @@ export const extractExpenseFromImage = async (base64Image: string): Promise<Omit
            ${categoriesContext}
 
            Regras:
-           - Se a loja for de Jardinagem, use Categoria: "Moradia", Subcategoria: "Jardinagem / Plantas".
-           - Se a loja for Supermercado, use Categoria: "Alimentação", Subcategoria: "Supermercado (Geral)".
-           - Se for Restaurante, use "Alimentação" -> "Restaurante / Almoço".
+           - Priorize a categoria do ESTABELECIMENTO. Se for um posto de gasolina, é "Transporte" -> "Combustível", mesmo se comprou água.
+           - Se for Restaurante/Lanchonete, use "Alimentação" -> "Restaurante / Almoço".
 
         4. DADOS GERAIS:
            - Data: Formato YYYY-MM-DD.
@@ -129,12 +128,19 @@ export const extractExpenseFromImage = async (base64Image: string): Promise<Omit
             finalCategory = foundEntry[0];
         } else {
             // Fallback inteligente baseado no nome do local se possível, ou Outros
-            if (parsedData.localName?.toLowerCase().includes('supermercado') || parsedData.localName?.toLowerCase().includes('atacad')) {
+            const local = (parsedData.localName || '').toLowerCase();
+            if (local.includes('supermercado') || local.includes('atacad') || local.includes('market')) {
                 finalCategory = 'Alimentação';
                 finalSubcategory = 'Supermercado (Geral)';
-            } else if (parsedData.localName?.toLowerCase().includes('jardin') || parsedData.localName?.toLowerCase().includes('flor')) {
+            } else if (local.includes('jardin') || local.includes('flor')) {
                 finalCategory = 'Moradia';
                 finalSubcategory = 'Jardinagem / Plantas';
+            } else if (local.includes('farma') || local.includes('drogaria')) {
+                finalCategory = 'Saúde e Higiene';
+                finalSubcategory = 'Farmácia / Medicamentos';
+            } else if (local.includes('posto') || local.includes('combustivel')) {
+                finalCategory = 'Transporte';
+                finalSubcategory = 'Combustível';
             } else {
                 finalCategory = 'Outros';
                 finalSubcategory = 'Não Identificado';
