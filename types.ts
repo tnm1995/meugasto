@@ -52,6 +52,9 @@ export interface User {
     transactionId: string;
     product: string;
   };
+  
+  // Chat Fields
+  lastChatClearedAt?: any; // Timestamp do Firestore para limpeza de chat do usuário
 }
 
 // Interface para Logs de Auditoria do Admin
@@ -134,6 +137,10 @@ export interface Ticket {
   assignedTo?: string; // UID do admin responsável
   tags?: TicketTag[];
   internalNotes?: string; // Bloco de notas do suporte
+  
+  // Typing Indicators
+  isUserTyping?: boolean;
+  isSupportTyping?: boolean;
 }
 
 export interface ReminderSettings {

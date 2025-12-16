@@ -13,6 +13,7 @@ import {
     MoreVertIcon, 
     XMarkIcon 
 } from './Icons';
+import { motion } from 'framer-motion';
 
 interface AdminSupportProps {
     currentUser: User;
@@ -43,6 +44,9 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
     const [replyText, setReplyText] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     
+    // Typing Indicators
+    const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    
     // Ticket Details State (Optimistic UI)
     const [internalNote, setInternalNote] = useState('');
     const [loadingMessages, setLoadingMessages] = useState(false);
@@ -52,7 +56,7 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
 
     const admins = useMemo(() => allUsers.filter(u => u.role && ['admin', 'super_admin', 'operational_admin', 'support_admin'].includes(u.role)), [allUsers]);
 
-    // 1. Fetch Tickets
+    // 1. Fetch Tickets (Also listens to typing status in tickets collection)
     useEffect(() => {
         const q = query(collection(db, 'tickets'), orderBy('updatedAt', 'desc'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -95,6 +99,21 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
         return () => unsubscribe();
     }, [selectedTicketId]);
 
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setReplyText(e.target.value);
+        if (!selectedTicketId) return;
+
+        // Update admin typing status
+        const ticketRef = doc(db, 'tickets', selectedTicketId);
+        updateDoc(ticketRef, { isSupportTyping: true }).catch(() => {});
+
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        
+        typingTimeoutRef.current = setTimeout(() => {
+            updateDoc(ticketRef, { isSupportTyping: false }).catch(() => {});
+        }, 2000);
+    };
+
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!replyText.trim() || !selectedTicketId) return;
@@ -116,10 +135,12 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
                 lastMessageSender: 'support',
                 updatedAt: serverTimestamp(),
                 status: 'in_progress', // Auto move to in progress
-                unreadCount: 0 // Reset unread
+                unreadCount: 0, // Reset unread
+                isSupportTyping: false // Stop typing indicator
             });
 
             setReplyText('');
+            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
         } catch (error) {
             console.error(error);
             showToast('Erro ao enviar mensagem.', 'error');
@@ -201,7 +222,13 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
                                     <span className="text-[10px] text-gray-400">{new Date(ticket.updatedAt?.toMillis?.() || Date.now()).toLocaleDateString('pt-BR', {day:'2-digit', month:'short'})}</span>
                                 </div>
                                 <p className={`text-xs truncate mb-2 ${ticket.unreadCount > 0 ? 'font-bold text-gray-800' : 'text-gray-500'}`}>
-                                    {ticket.lastMessageSender === 'user' ? '👤 ' : 'Support: '} {ticket.lastMessage}
+                                    {ticket.isUserTyping ? (
+                                        <span className="text-blue-600 font-bold italic">Digitando...</span>
+                                    ) : (
+                                        <>
+                                            {ticket.lastMessageSender === 'user' ? '👤 ' : 'Support: '} {ticket.lastMessage}
+                                        </>
+                                    )}
                                 </p>
                                 <div className="flex items-center justify-between">
                                     <div className="flex gap-1">
@@ -259,6 +286,19 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
                                 </div>
                             );
                         })}
+                        
+                        {/* User Typing Indicator in Admin Panel */}
+                        {selectedTicket.isUserTyping && (
+                            <div className="flex justify-start mb-2">
+                                <div className="bg-white p-3 rounded-2xl rounded-tl-none flex items-center gap-1 w-fit shadow-sm border border-gray-200">
+                                    <span className="text-xs font-bold text-gray-500 mr-2">Digitando</span>
+                                    <motion.div animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0 }} className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
+                                    <motion.div animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.2 }} className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
+                                    <motion.div animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.4 }} className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
+                                </div>
+                            </div>
+                        )}
+
                         <div ref={messagesEndRef} />
                     </div>
 
@@ -269,7 +309,10 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
                             {MACROS.map((macro, idx) => (
                                 <button
                                     key={idx}
-                                    onClick={() => setReplyText(macro.text)}
+                                    onClick={() => {
+                                        setReplyText(macro.text);
+                                        // Trigger typing logic manually here if needed for macros
+                                    }}
                                     className="px-3 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-full text-xs text-gray-600 whitespace-nowrap transition-colors"
                                 >
                                     {macro.label}
@@ -280,7 +323,7 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
                             <input 
                                 type="text" 
                                 value={replyText}
-                                onChange={e => setReplyText(e.target.value)}
+                                onChange={handleInputChange}
                                 placeholder="Escreva uma resposta..."
                                 className="w-full pl-4 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-sm"
                             />

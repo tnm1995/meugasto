@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { XMarkIcon, SupportAgentIcon, SendIcon } from './Icons';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { ChatMessage, User, Omit, TicketStatus } from '../types';
-import { orderBy, serverTimestamp, doc, setDoc, updateDoc, getDoc, increment } from 'firebase/firestore';
+import { orderBy, serverTimestamp, doc, setDoc, updateDoc, getDoc, increment, onSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebaseService';
 import { useToast } from '../contexts/ToastContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -51,6 +51,10 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
   const [guestMessage, setGuestMessage] = useState('');
   const [isGuestFormSubmitted, setIsGuestFormSubmitted] = useState(false);
 
+  // Typing Indicator Logic
+  const [isSupportTyping, setIsSupportTyping] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { showToast } = useToast();
@@ -73,10 +77,35 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
   // Se tem usuário, usa o hook do Firestore. Se não, passa string vazia para evitar erro de permissão (modo formulário)
   const queryConstraints = useMemo(() => [orderBy('timestamp', 'asc')], []);
   const { 
-    data: messages, 
+    data: allMessages, 
     loading, 
     addDocument 
   } = useFirestoreCollection<ChatMessage>('support_messages', currentUser?.uid || '', queryConstraints);
+
+  // Filter messages based on lastChatClearedAt (Soft Clear)
+  const messages = useMemo(() => {
+    if (!currentUser?.lastChatClearedAt) return allMessages;
+    
+    // Firestore Timestamps can be objects with toMillis() or seconds/nanoseconds
+    let clearTime = 0;
+    if (currentUser.lastChatClearedAt.toMillis) {
+        clearTime = currentUser.lastChatClearedAt.toMillis();
+    } else if (currentUser.lastChatClearedAt.seconds) {
+        clearTime = currentUser.lastChatClearedAt.seconds * 1000;
+    } else if (typeof currentUser.lastChatClearedAt === 'string') { // ISO string fallback
+        clearTime = new Date(currentUser.lastChatClearedAt).getTime();
+    }
+
+    return allMessages.filter(msg => {
+        let msgTime = 0;
+        if (msg.timestamp?.toMillis) msgTime = msg.timestamp.toMillis();
+        else if (msg.timestamp?.seconds) msgTime = msg.timestamp.seconds * 1000;
+        else if (msg.timestamp instanceof Date) msgTime = msg.timestamp.getTime();
+        else if (!msg.timestamp) msgTime = Date.now(); // Optimistic update
+
+        return msgTime > clearTime;
+    });
+  }, [allMessages, currentUser?.lastChatClearedAt]);
 
   const scrollToBottom = () => {
       if (messagesEndRef.current) {
@@ -88,7 +117,57 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
     if (isOpen) {
         setTimeout(scrollToBottom, 300); // Slight delay for animation
     }
-  }, [isOpen, messages, isGuestFormSubmitted]);
+  }, [isOpen, messages, isGuestFormSubmitted, isSupportTyping]);
+
+  // Listen for Support Typing Status
+  useEffect(() => {
+      if (!currentUser?.uid) return;
+      
+      const ticketRef = doc(db, 'tickets', currentUser.uid);
+      const unsubscribe = onSnapshot(ticketRef, (docSnap) => {
+          if (docSnap.exists()) {
+              const data = docSnap.data();
+              setIsSupportTyping(!!data.isSupportTyping);
+          }
+      });
+      return () => unsubscribe();
+  }, [currentUser?.uid]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setNewMessage(e.target.value);
+      
+      // Update typing status in Firestore (Debounced)
+      if (currentUser?.uid) {
+          const ticketRef = doc(db, 'tickets', currentUser.uid);
+          
+          // Set typing true immediately if not already
+          // Note: In a real app, we should check current state to avoid excessive writes
+          updateDoc(ticketRef, { isUserTyping: true }).catch(() => {});
+
+          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+          
+          typingTimeoutRef.current = setTimeout(() => {
+              updateDoc(ticketRef, { isUserTyping: false }).catch(() => {});
+          }, 2000); // Stop typing after 2s of inactivity
+      }
+  };
+
+  const handleClose = async () => {
+      if (currentUser?.uid) {
+          try {
+              // Update lastChatClearedAt to "Soft Clear" the chat for next session
+              const userRef = doc(db, 'users', currentUser.uid);
+              await updateDoc(userRef, { lastChatClearedAt: serverTimestamp() });
+              
+              // Also ensure we aren't "typing" anymore
+              const ticketRef = doc(db, 'tickets', currentUser.uid);
+              await updateDoc(ticketRef, { isUserTyping: false });
+          } catch (error) {
+              console.error("Error clearing chat session:", error);
+          }
+      }
+      onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -124,12 +203,14 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
           updatedAt: serverTimestamp(),
           // Se já existe, mantém o status atual (a menos que esteja resolvido, aí reabre). Se não, cria como 'open'.
           status: ticketSnap.exists() && ticketSnap.data().status !== 'resolved' ? ticketSnap.data().status : 'open',
-          unreadCount: increment(1) // Incrementa contador de não lidas para o admin
+          unreadCount: increment(1), // Incrementa contador de não lidas para o admin
+          isUserTyping: false // Stop typing indicator on send
       };
 
       await setDoc(ticketRef, ticketPayload, { merge: true });
 
       setNewMessage('');
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       if (textareaRef.current) textareaRef.current.style.height = 'auto';
     } catch (error) {
       console.error("Error sending message:", error);
@@ -143,10 +224,6 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
           showToast("Por favor, preencha todos os campos.", 'error');
           return;
       }
-
-      // Guest também pode gerar um ticket se quisermos, mas como não tem UID, 
-      // precisaria de uma coleção separada ou gerar um ID temporário. 
-      // Por enquanto, mantemos apenas o aviso visual para simplificar.
       
       setIsGuestFormSubmitted(true);
       showToast("Mensagem enviada! Entraremos em contato.", 'success');
@@ -240,7 +317,7 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
           </div>
           <h3 className="text-xl font-bold text-gray-800 mb-2">Mensagem Enviada!</h3>
           <p className="text-gray-500 mb-8">Obrigado, <strong>{guestName}</strong>. Nossa equipe entrará em contato pelo número <strong>{guestPhone}</strong> ou email <strong>{guestEmail}</strong> em breve.</p>
-          <button onClick={onClose} className="text-blue-600 font-bold hover:underline">Fechar Janela</button>
+          <button onClick={handleClose} className="text-blue-600 font-bold hover:underline">Fechar Janela</button>
       </div>
   );
 
@@ -265,6 +342,7 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
           let dateObj = new Date();
           if (msg.timestamp) {
              if (typeof msg.timestamp.toMillis === 'function') dateObj = new Date(msg.timestamp.toMillis());
+             else if (msg.timestamp?.seconds) dateObj = new Date(msg.timestamp.seconds * 1000);
              else if (msg.timestamp instanceof Date) dateObj = msg.timestamp;
           }
           
@@ -275,7 +353,7 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
           const isUser = msg.sender === 'user';
           
           const nextMsg = messages[index + 1];
-          const isLastInGroup = !nextMsg || nextMsg.sender !== msg.sender || (nextMsg.timestamp && Math.abs( (typeof nextMsg.timestamp.toMillis === 'function' ? nextMsg.timestamp.toMillis() : (nextMsg.timestamp as any).getTime()) - dateObj.getTime()) > 60000 * 5); 
+          const isLastInGroup = !nextMsg || nextMsg.sender !== msg.sender || (nextMsg.timestamp && Math.abs( (typeof nextMsg.timestamp.toMillis === 'function' ? nextMsg.timestamp.toMillis() : (nextMsg.timestamp?.seconds ? nextMsg.timestamp.seconds * 1000 : (nextMsg.timestamp as any).getTime())) - dateObj.getTime()) > 60000 * 5); 
           
           let borderRadiusClass = 'rounded-2xl';
           if (isUser) borderRadiusClass = isLastInGroup ? 'rounded-2xl rounded-tr-sm' : 'rounded-2xl rounded-tr-sm rounded-br-sm mb-1';
@@ -347,7 +425,7 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
                 </p>
                 </div>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 bg-gray-50 hover:bg-gray-100 p-2 rounded-full transition-colors w-10 h-10 flex items-center justify-center shrink-0 aspect-square">
+            <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 bg-gray-50 hover:bg-gray-100 p-2 rounded-full transition-colors w-10 h-10 flex items-center justify-center shrink-0 aspect-square">
                 <XMarkIcon className="text-xl" />
             </button>
             </div>
@@ -366,6 +444,18 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
                     )}
                     <div className="h-full overflow-y-auto p-4 space-y-1 custom-scrollbar">
                         {renderMessages()}
+                        
+                        {/* Support Typing Indicator */}
+                        {isSupportTyping && (
+                            <div className="flex justify-start mb-2">
+                                <div className="bg-gray-100 p-3 rounded-2xl rounded-tl-none flex items-center gap-1 w-fit shadow-sm border border-gray-200">
+                                    <motion.div animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0 }} className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
+                                    <motion.div animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.2 }} className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
+                                    <motion.div animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.4 }} className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
+                                </div>
+                            </div>
+                        )}
+
                         <div ref={messagesEndRef} />
                     </div>
                 </>
@@ -379,7 +469,7 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
                     <textarea
                     ref={textareaRef}
                     value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
+                    onChange={handleInputChange}
                     placeholder="Digite sua mensagem..."
                     className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-gray-800 placeholder-gray-400 resize-none max-h-32 py-3 px-4 min-h-[44px]"
                     rows={1}
