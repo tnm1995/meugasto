@@ -19,6 +19,7 @@ import { APISetupErrorModal } from './APISetupErrorModal';
 import { PlusIcon } from './Icons';
 import { Header } from './Header';
 import { BottomNavItem } from './BottomNav';
+import { Sidebar } from './Sidebar'; // Import Sidebar
 
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { useFirestoreDocument } from '../hooks/useFirestoreDocument';
@@ -264,7 +265,6 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
     if (!currentUser.uid) return false;
     
     try {
-      // Pega todos os documentos da coleção 'expenses' do usuário
       const expensesRef = collection(db, 'users', currentUser.uid, 'expenses');
       const snapshot = await getDocs(expensesRef);
       
@@ -273,15 +273,12 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
         return true;
       }
 
-      // Firestore Batch (Limite de 500 operações por batch)
       const batch = writeBatch(db);
       let count = 0;
       
       snapshot.docs.forEach((doc) => {
         batch.delete(doc.ref);
         count++;
-        // Em um app de produção com muitos dados, precisaríamos de lógica para múltiplos batches (chunking)
-        // Aqui assumimos < 500 para simplicidade ou que o usuário deleta periodicamente.
       });
 
       await batch.commit();
@@ -321,46 +318,80 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
     </Suspense>
   ), [currentView, expenses, goals, savingsGoals, reminders, handleAppLogout, deleteExpense, deleteGoal, deleteSavingsGoal, onManageSubscription, onManageReminders, onUpdateProfileImage, userProfile, loadingExpenses, loadingGoals, loadingUserDoc, onOpenGlobalPrivacyPolicy, onOpenGlobalTermsOfService, onOpenSupport, handleAPISetupError, addExpenseFirestore, isAdmin, handleResetData]);
 
+  const openNewExpenseModal = () => {
+      setInitialExpenseData(null); 
+      setExpenseToEdit(null); 
+      setIsExpenseModalOpen(true);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <Header userProfile={userProfile} currentView={currentView} onSetView={setCurrentView} onLogout={handleAppLogout} />
-      
-      {expirationWarning?.show && (
-        <div className="fixed z-30 top-[80px] left-0 right-0 flex justify-center px-4 animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className={`backdrop-blur-md border rounded-2xl shadow-xl p-3 w-full max-w-2xl flex items-center justify-between gap-3 ring-1 ring-black/5 ${isTrialPeriod ? 'bg-indigo-50/95 border-indigo-200 shadow-indigo-500/10' : 'bg-white/95 border-orange-100 shadow-orange-500/10'}`}>
-                <div className="flex items-center gap-3 overflow-hidden">
-                    <div className={`p-2.5 rounded-xl shrink-0 flex items-center justify-center ${isTrialPeriod ? 'bg-indigo-100' : 'bg-orange-50'}`}><span className={`material-symbols-outlined text-xl ${isTrialPeriod ? 'text-indigo-600' : 'text-orange-500'}`}>{isTrialPeriod ? 'hourglass_top' : 'av_timer'}</span></div>
-                    <div className="flex flex-col min-w-0"><span className={`font-bold text-sm truncate ${isTrialPeriod ? 'text-indigo-900' : 'text-gray-800'}`}>{isTrialPeriod ? 'Teste Grátis Acabando' : 'Renovação Necessária'}</span><span className="text-gray-500 text-xs truncate">{isTrialPeriod ? 'Restam' : 'Vence em'} <span className={`font-bold ${isTrialPeriod ? 'text-indigo-600' : 'text-orange-600'}`}>{expirationWarning.days} dia(s)</span>.</span></div>
-                </div>
-                <button onClick={() => setIsSubscriptionModalFromComponent(true)} className={`text-xs font-bold px-5 py-2.5 rounded-xl shadow-md hover:shadow-lg transform active:scale-95 transition-all whitespace-nowrap text-white ${isTrialPeriod ? 'bg-gradient-to-r from-indigo-600 to-purple-600' : 'bg-gradient-to-r from-orange-500 to-amber-500'}`}>{isTrialPeriod ? 'Garantir Acesso' : 'Renovar Agora'}</button>
-            </div>
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+        {/* SIDEBAR - VISÍVEL APENAS EM DESKTOP (md:flex) */}
+        <div className="hidden md:flex flex-col h-full z-20 shadow-xl relative">
+            <Sidebar 
+                currentView={currentView} 
+                onSetView={setCurrentView} 
+                onOpenNewExpense={openNewExpenseModal}
+                onLogout={handleAppLogout}
+                userProfile={userProfile}
+            />
         </div>
-      )}
 
-      <main className={`flex-1 overflow-y-auto pb-20 view-transition max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 ${expirationWarning?.show ? 'pt-36' : 'pt-28'}`}>
-        {renderView()}
-      </main>
+        {/* MAIN CONTENT AREA */}
+        <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+            {/* Header (Top Bar) */}
+            <Header 
+                userProfile={userProfile} 
+                currentView={currentView} 
+                onSetView={setCurrentView} 
+                onLogout={handleAppLogout} 
+            />
+            
+            {/* Alert Banner (Trial/Expire) */}
+            {expirationWarning?.show && (
+                <div className="absolute z-30 top-20 left-4 right-4 md:left-8 md:right-8 flex justify-center animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-none">
+                    <div className={`pointer-events-auto backdrop-blur-md border rounded-2xl shadow-xl p-3 w-full max-w-2xl flex items-center justify-between gap-3 ring-1 ring-black/5 ${isTrialPeriod ? 'bg-indigo-50/95 border-indigo-200 shadow-indigo-500/10' : 'bg-white/95 border-orange-100 shadow-orange-500/10'}`}>
+                        <div className="flex items-center gap-3 overflow-hidden">
+                            <div className={`p-2.5 rounded-xl shrink-0 flex items-center justify-center ${isTrialPeriod ? 'bg-indigo-100' : 'bg-orange-50'}`}><span className={`material-symbols-outlined text-xl ${isTrialPeriod ? 'text-indigo-600' : 'text-orange-500'}`}>{isTrialPeriod ? 'hourglass_top' : 'av_timer'}</span></div>
+                            <div className="flex flex-col min-w-0"><span className={`font-bold text-sm truncate ${isTrialPeriod ? 'text-indigo-900' : 'text-gray-800'}`}>{isTrialPeriod ? 'Teste Grátis Acabando' : 'Renovação Necessária'}</span><span className="text-gray-500 text-xs truncate">{isTrialPeriod ? 'Restam' : 'Vence em'} <span className={`font-bold ${isTrialPeriod ? 'text-indigo-600' : 'text-orange-600'}`}>{expirationWarning.days} dia(s)</span>.</span></div>
+                        </div>
+                        <button onClick={() => setIsSubscriptionModalFromComponent(true)} className={`text-xs font-bold px-5 py-2.5 rounded-xl shadow-md hover:shadow-lg transform active:scale-95 transition-all whitespace-nowrap text-white ${isTrialPeriod ? 'bg-gradient-to-r from-indigo-600 to-purple-600' : 'bg-gradient-to-r from-orange-500 to-amber-500'}`}>{isTrialPeriod ? 'Garantir Acesso' : 'Renovar Agora'}</button>
+                    </div>
+                </div>
+            )}
 
-      {currentView !== 'admin' && (
-          <nav className="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t border-gray-200 z-40">
-            <div className="grid grid-cols-5 h-16 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8">
-              <BottomNavItem icon="space_dashboard" label="Dashboard" isActive={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} />
-              <BottomNavItem icon="receipt_long" label="Lançamentos" isActive={currentView === 'entries'} onClick={() => setCurrentView('entries')} />
-              <div className="relative flex justify-center items-center z-50">
-                 <button onClick={() => { setInitialExpenseData(null); setExpenseToEdit(null); setIsExpenseModalOpen(true); }} className="absolute -top-8 w-16 h-16 bg-blue-600 text-white rounded-full shadow-xl shadow-blue-600/40 flex items-center justify-center hover:bg-blue-700 transition-all transform hover:scale-105 active:scale-95 focus:outline-none border-4 border-gray-50"><PlusIcon className="text-3xl" /></button>
-              </div>
-              <BottomNavItem icon="track_changes" label="Planejamento" isActive={currentView === 'goals'} onClick={() => setCurrentView('goals')} />
-              <BottomNavItem icon="bar_chart" label="Relatórios" isActive={currentView === 'reports'} onClick={() => setCurrentView('reports')} />
-            </div>
-          </nav>
-      )}
+            {/* Scrollable Main View */}
+            <main className={`flex-1 overflow-y-auto pb-24 md:pb-8 view-transition w-full px-4 sm:px-6 lg:px-8 custom-scrollbar ${expirationWarning?.show ? 'pt-24' : 'pt-4'}`}>
+                <div className="max-w-7xl mx-auto">
+                    {renderView()}
+                </div>
+            </main>
 
-      <ExpenseModal isOpen={isExpenseModalOpen} onClose={() => { setIsExpenseModalOpen(false); setExpenseToEdit(null); }} onSaveExpense={onSaveExpense} expenseToEdit={expenseToEdit} initialData={initialExpenseData} onAPISetupError={handleAPISetupError} />
-      <GoalModal isOpen={isGoalModalOpen} onClose={() => { setIsGoalModalOpen(false); setGoalToEdit(null); }} onSaveGoal={onSaveGoal} goalToEdit={goalToEdit} />
-      <SavingsGoalModal isOpen={isSavingsModalOpen} onClose={() => { setIsSavingsModalOpen(false); setSavingsGoalToEdit(null); }} onSave={onSaveSavingsGoal} goalToEdit={savingsGoalToEdit} />
-      <SubscriptionModal isOpen={isSubscriptionModalOpen} onClose={() => setIsSubscriptionModalFromComponent(false)} />
-      <ReminderModal isOpen={isReminderModalOpen} onClose={() => setIsReminderModalOpen(false)} onAddReminder={onAddReminder} onDeleteReminder={onDeleteReminder} reminders={reminders} />
-      <APISetupErrorModal isOpen={isAPISetupErrorModalOpen} onClose={() => setIsAPISetupErrorModalOpen(false)} />
+            {/* BOTTOM NAV - VISÍVEL APENAS EM MOBILE (md:hidden) E NÃO ADMIN */}
+            {currentView !== 'admin' && (
+                <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] border-t border-gray-200 z-40 safe-area-pb">
+                    <div className="grid grid-cols-5 h-16 w-full px-2">
+                        <BottomNavItem icon="space_dashboard" label="Dashboard" isActive={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} />
+                        <BottomNavItem icon="receipt_long" label="Lançamentos" isActive={currentView === 'entries'} onClick={() => setCurrentView('entries')} />
+                        <div className="relative flex justify-center items-center z-50">
+                            <button onClick={openNewExpenseModal} className="absolute -top-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg shadow-blue-600/40 flex items-center justify-center hover:bg-blue-700 transition-all transform active:scale-95 focus:outline-none border-4 border-gray-50">
+                                <PlusIcon className="text-2xl" />
+                            </button>
+                        </div>
+                        <BottomNavItem icon="track_changes" label="Planejamento" isActive={currentView === 'goals'} onClick={() => setCurrentView('goals')} />
+                        <BottomNavItem icon="bar_chart" label="Relatórios" isActive={currentView === 'reports'} onClick={() => setCurrentView('reports')} />
+                    </div>
+                </nav>
+            )}
+        </div>
+
+        {/* Global Modals */}
+        <ExpenseModal isOpen={isExpenseModalOpen} onClose={() => { setIsExpenseModalOpen(false); setExpenseToEdit(null); }} onSaveExpense={onSaveExpense} expenseToEdit={expenseToEdit} initialData={initialExpenseData} onAPISetupError={handleAPISetupError} />
+        <GoalModal isOpen={isGoalModalOpen} onClose={() => { setIsGoalModalOpen(false); setGoalToEdit(null); }} onSaveGoal={onSaveGoal} goalToEdit={goalToEdit} />
+        <SavingsGoalModal isOpen={isSavingsModalOpen} onClose={() => { setIsSavingsModalOpen(false); setSavingsGoalToEdit(null); }} onSave={onSaveSavingsGoal} goalToEdit={savingsGoalToEdit} />
+        <SubscriptionModal isOpen={isSubscriptionModalOpen} onClose={() => setIsSubscriptionModalFromComponent(false)} />
+        <ReminderModal isOpen={isReminderModalOpen} onClose={() => setIsReminderModalOpen(false)} onAddReminder={onAddReminder} onDeleteReminder={onDeleteReminder} reminders={reminders} />
+        <APISetupErrorModal isOpen={isAPISetupErrorModalOpen} onClose={() => setIsAPISetupErrorModalOpen(false)} />
     </div>
   );
 };
