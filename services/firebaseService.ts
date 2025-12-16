@@ -66,15 +66,15 @@ try {
   
   if (typeof window !== 'undefined') {
     try {
-      // Prevent 403 errors by only initializing Analytics if we are NOT using the fallback measurement ID,
-      // or if we are explicitly sure the API key supports it. 
-      // The default fallback key often lacks permissions for the Installations API (required by Analytics).
-      const isFallbackConfig = firebaseConfig.measurementId === "G-NC93789KE9";
+      // Prevent 403 errors by only initializing Analytics if we are NOT using the fallback API Key.
+      // The default fallback key has strict restrictions preventing Installations/Analytics on unauthorized domains (like localhost or forks).
+      const isFallbackKey = firebaseConfig.apiKey === "AIzaSyCxoflM16AOIdWq7ej3B9wkNNXaEXRwQUE";
       
-      if (!isFallbackConfig) {
+      if (!isFallbackKey) {
         analytics = getAnalytics(app);
+        console.log("Firebase Analytics initialized.");
       } else {
-        console.debug("Firebase Analytics skipped to prevent 403 errors with default config.");
+        console.debug("Firebase Analytics skipped to prevent 403 'Installations' errors with fallback API Key.");
       }
     } catch (e) {
       console.warn("Analytics initialization failed:", e);
