@@ -415,7 +415,7 @@ const App: React.FC = () => {
                     layoutId="support-chat-container"
                     onClick={onOpenSupportChat}
                     style={{ borderRadius: "50%" }} // Garante forma circular no morph
-                    className={`fixed right-6 w-14 h-14 bg-black hover:scale-110 text-white rounded-full shadow-2xl shadow-black/40 items-center justify-center z-50 group overflow-hidden ${chatButtonVisibilityClass} ${appState === 'app' ? 'bottom-24' : 'bottom-6'}`}
+                    className={`fixed right-6 w-14 h-14 bg-black hover:scale-110 text-white rounded-full shadow-2xl shadow-black/40 items-center justify-center z-50 group overflow-hidden ${chatButtonVisibilityClass} ${appState === 'app' ? 'bottom-24 md:bottom-6' : 'bottom-6'}`}
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.95 }}
                     initial={{ opacity: 0, scale: 0.8 }}
