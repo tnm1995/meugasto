@@ -1,41 +1,19 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
-import type { Expense, BankTransaction, Omit } from "../types";
-import { CATEGORIES } from "../types";
+import type { Expense, BankTransaction, Omit } from '../types';
+import { CATEGORIES } from '../types';
 
-/**
- * =====================================================
- * Gemini API Key (Vite padrão)
- * =====================================================
- */
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+// Initialize the Gemini API client directly with the environment variable
+// adhering to the requirement: const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-/**
- * Se não houver chave, NÃO inicializa a IA.
- * O app continua funcionando normalmente.
- */
-if (!apiKey) {
-  console.warn(
-    "[Gemini] VITE_GEMINI_API_KEY não configurada. Recursos de IA desativados."
-  );
-}
+const categoryList = Object.keys(CATEGORIES).join(', ');
 
-/**
- * Inicializa apenas se houver chave
- */
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
-
-const categoryList = Object.keys(CATEGORIES).join(", ");
-
-/**
- * =====================================================
- * SCHEMAS
- * =====================================================
- */
 const expenseResponseSchema = {
   type: Type.OBJECT,
   properties: {
-    localName: { type: Type.STRING },
-    purchaseDate: { type: Type.STRING },
+    localName: { type: Type.STRING, description: "Nome do estabelecimento comercial." },
+    purchaseDate: { type: Type.STRING, description: "Data da compra no formato YYYY-MM-DD." },
     items: {
       type: Type.ARRAY,
       items: {
@@ -44,18 +22,16 @@ const expenseResponseSchema = {
           name: { type: Type.STRING },
           price: { type: Type.NUMBER },
         },
-        required: ["name", "price"],
+        required: ['name', 'price'],
       },
+      description: "Lista de produtos ou serviços adquiridos com seus respectivos preços unitários ou totais do item."
     },
-    total: { type: Type.NUMBER },
-    category: {
-      type: Type.STRING,
-      description: `Opções: ${categoryList}`,
-    },
-    subcategory: { type: Type.STRING },
-    paymentMethod: { type: Type.STRING },
+    total: { type: Type.NUMBER, description: "Valor total final da nota fiscal." },
+    category: { type: Type.STRING, description: `A melhor categoria que se aplica a esta despesa. Opções: ${categoryList}` },
+    subcategory: { type: Type.STRING, description: "Uma subcategoria relevante baseada no contexto da categoria principal." },
+    paymentMethod: { type: Type.STRING, description: "Método de pagamento (Crédito, Débito, Pix, Dinheiro, etc)." }
   },
-  required: ["localName", "purchaseDate", "items", "total", "category"],
+  required: ['localName', 'purchaseDate', 'total', 'category', 'items'],
 };
 
 const bankTransactionResponseSchema = {
@@ -66,92 +42,99 @@ const bankTransactionResponseSchema = {
       date: { type: Type.STRING },
       description: { type: Type.STRING },
       amount: { type: Type.NUMBER },
-      type: { type: Type.STRING, enum: ["DEBIT", "CREDIT"] },
+      type: { type: Type.STRING, enum: ['DEBIT', 'CREDIT'] },
     },
-    required: ["date", "description", "amount", "type"],
+    required: ['date', 'description', 'amount', 'type'],
   },
 };
 
-/**
- * =====================================================
- * EXPENSE IMAGE
- * =====================================================
- */
-export const extractExpenseFromImage = async (
-  base64Image: string
-): Promise<Omit<Expense, "id">> => {
-  if (!ai) {
-    throw new Error("API_NOT_ENABLED");
+export const extractExpenseFromImage = async (base64Image: string): Promise<Omit<Expense, 'id'>> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: { parts: [
+        { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
+        { text: 'Analise esta imagem de cupom fiscal/recibo (NFC-e, SAT ou recibo comum). Extraia os dados estruturados. Para a data, procure a data de emissão. Liste todos os itens visíveis com seus preços. Identifique o total pago. Categorize a despesa.' }
+      ] },
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: expenseResponseSchema,
+      },
+    });
+
+    if (!response.text) {
+        throw new Error('Resposta vazia da IA.');
+    }
+
+    const parsedData = JSON.parse(response.text);
+    
+    // Validação básica para garantir que não quebre a UI
+    return {
+        localName: parsedData.localName || 'Desconhecido',
+        purchaseDate: parsedData.purchaseDate || new Date().toISOString().split('T')[0],
+        items: parsedData.items || [],
+        total: typeof parsedData.total === 'number' ? parsedData.total : 0,
+        category: parsedData.category || 'Outros',
+        subcategory: parsedData.subcategory || 'Outros',
+        isRecurring: false,
+        paymentMethod: parsedData.paymentMethod || 'Outro',
+        type: 'expense'
+    };
+
+  } catch (error: any) {
+    console.error('Gemini Error Full:', JSON.stringify(error, null, 2));
+    
+    const errorMessage = error.message || '';
+    
+    // Identifica erro de API não habilitada ou chave inválida
+    if (
+        errorMessage.includes('API key not valid') || 
+        errorMessage.includes('Generative Language API has not been used') || 
+        error.status === 403 || 
+        error.status === 400 || // API key not valid is often 400
+        errorMessage.includes('PERMISSION_DENIED')
+    ) {
+        throw new Error('API_NOT_ENABLED');
+    }
+
+    throw new Error(`Erro ao processar imagem: ${errorMessage || 'Tente novamente.'}`);
   }
-
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: {
-      parts: [
-        { inlineData: { mimeType: "image/jpeg", data: base64Image } },
-        {
-          text:
-            "Analise esta imagem de cupom fiscal/recibo e extraia os dados estruturados.",
-        },
-      ],
-    },
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: expenseResponseSchema,
-    },
-  });
-
-  if (!response.text) {
-    throw new Error("EMPTY_RESPONSE");
-  }
-
-  const data = JSON.parse(response.text);
-
-  return {
-    localName: data.localName || "Desconhecido",
-    purchaseDate:
-      data.purchaseDate || new Date().toISOString().split("T")[0],
-    items: data.items || [],
-    total: typeof data.total === "number" ? data.total : 0,
-    category: data.category || "Outros",
-    subcategory: data.subcategory || "Outros",
-    paymentMethod: data.paymentMethod || "Outro",
-    isRecurring: false,
-    type: "expense",
-  };
 };
 
-/**
- * =====================================================
- * BANK PDF
- * =====================================================
- */
-export const extractTransactionsFromPdfText = async (
-  pdfText: string
-): Promise<BankTransaction[]> => {
-  if (!ai) {
-    throw new Error("API_NOT_ENABLED");
+export const extractTransactionsFromPdfText = async (pdfText: string): Promise<BankTransaction[]> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: { parts: [{ text: `Analise o texto deste extrato bancário e extraia as transações financeiras em JSON. Ignore saldos e cabeçalhos. Texto: ${pdfText}` }] },
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: bankTransactionResponseSchema,
+      },
+    });
+    
+    if (!response.text) {
+        return [];
+    }
+
+    const parsedData = JSON.parse(response.text);
+    return Array.isArray(parsedData) ? parsedData : [];
+
+  } catch (error: any) {
+    console.error('Gemini PDF Error:', error);
+    
+    const errorMessage = error.message || '';
+
+    // Identifica erro de API não habilitada
+    if (
+        errorMessage.includes('API key not valid') ||
+        errorMessage.includes('Generative Language API has not been used') || 
+        error.status === 403 || 
+        error.status === 400 ||
+        errorMessage.includes('PERMISSION_DENIED')
+    ) {
+        throw new Error('API_NOT_ENABLED');
+    }
+
+    throw new Error('Erro ao processar PDF.');
   }
-
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: {
-      parts: [
-        {
-          text: `Extraia as transações financeiras deste extrato bancário em JSON:\n${pdfText}`,
-        },
-      ],
-    },
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: bankTransactionResponseSchema,
-    },
-  });
-
-  if (!response.text) {
-    return [];
-  }
-
-  const parsed = JSON.parse(response.text);
-  return Array.isArray(parsed) ? parsed : [];
 };
