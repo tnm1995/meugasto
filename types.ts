@@ -138,9 +138,10 @@ export interface Ticket {
   tags?: TicketTag[];
   internalNotes?: string; // Bloco de notas do suporte
   
-  // Typing Indicators
+  // Typing Indicators & Presence
   isUserTyping?: boolean;
   isSupportTyping?: boolean;
+  userLastActive?: any; // Timestamp do Heartbeat do usuário
 }
 
 export interface ReminderSettings {

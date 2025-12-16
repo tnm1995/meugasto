@@ -8,7 +8,7 @@ import { ThankYouPage } from './components/ThankYouPage';
 import { auth, db, firebaseInitialized, firebaseInitializationError } from './services/firebaseService'; 
 // @ts-ignore
 import { onAuthStateChanged } from 'firebase/auth';
-import { getDoc, doc } from 'firebase/firestore'; 
+import { getDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore'; 
 import { ToastProvider } from './contexts/ToastContext'; 
 import { PrivacyPolicyModal } from './components/PrivacyPolicyModal'; 
 import { TermsOfServiceModal } from './components/TermsOfServiceModal'; 
@@ -45,6 +45,31 @@ const App: React.FC = () => {
         console.warn('History pushState failed (likely environment restriction):', e);
     }
   };
+
+  // Heartbeat para Status Online
+  useEffect(() => {
+    if (appState !== 'app' || !currentUser?.uid) return;
+
+    const updatePresence = async () => {
+        try {
+            // Tenta atualizar o ticket de suporte com o status online (lastActive)
+            // Usamos updateDoc para não criar tickets desnecessários se o usuário nunca interagiu
+            const ticketRef = doc(db, 'tickets', currentUser.uid);
+            await updateDoc(ticketRef, { 
+                userLastActive: serverTimestamp() 
+            });
+        } catch (e) {
+            // Se o documento não existe (usuário nunca abriu chat), ignoramos silenciosamente
+            // O status online é prioritariamente para quem já tem interação com suporte
+        }
+    };
+
+    // Atualiza imediatamente e depois a cada 60s
+    updatePresence();
+    const interval = setInterval(updatePresence, 60000);
+
+    return () => clearInterval(interval);
+  }, [appState, currentUser?.uid]);
 
   useEffect(() => {
     const path = window.location.pathname;
@@ -213,11 +238,20 @@ const App: React.FC = () => {
   }, [validateUserSession]);
 
   const handleLogout = useCallback(async () => {
+      // Tentar atualizar status para offline (best effort)
+      if (currentUser?.uid) {
+          try {
+              const ticketRef = doc(db, 'tickets', currentUser.uid);
+              // Define uma data antiga para forçar offline
+              await updateDoc(ticketRef, { userLastActive: new Date(0) });
+          } catch(e) {}
+      }
+      
       await logout();
       setAppState('landing');
       setCurrentUser(null);
       safePushState('/'); 
-  }, []);
+  }, [currentUser]);
 
   const handleRenewSubscription = useCallback(async () => {
       await logout();

@@ -16,9 +16,22 @@ interface SupportChatModalProps {
 
 const isBusinessHours = () => {
   const now = new Date();
-  const hours = now.getHours();
-  // Funcionamento: 9h às 18h
-  return hours >= 9 && hours < 18;
+  
+  // Utiliza Intl.DateTimeFormat para garantir o fuso de Brasília (UTC-3), considerando ou não horário de verão se aplicável
+  try {
+      const formatter = new Intl.DateTimeFormat('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        hour: 'numeric',
+        hour12: false
+      });
+      const hourInBrasilia = parseInt(formatter.format(now));
+      // Funcionamento: 9h às 18h
+      return hourInBrasilia >= 9 && hourInBrasilia < 18;
+  } catch (e) {
+      // Fallback simples se o browser não suportar timeZone (raro)
+      const hours = now.getHours();
+      return hours >= 9 && hours < 18;
+  }
 };
 
 const formatDateSeparator = (date: Date) => {
@@ -60,9 +73,14 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
   const { showToast } = useToast();
 
   useEffect(() => {
+    // Atualiza status online a cada minuto para refletir mudança de horário (ex: virou 18h)
     const interval = setInterval(() => {
       setIsOnline(isBusinessHours());
     }, 60000);
+    
+    // Check inicial
+    setIsOnline(isBusinessHours());
+
     return () => clearInterval(interval);
   }, []);
 
@@ -204,7 +222,9 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
           // Se já existe, mantém o status atual (a menos que esteja resolvido, aí reabre). Se não, cria como 'open'.
           status: ticketSnap.exists() && ticketSnap.data().status !== 'resolved' ? ticketSnap.data().status : 'open',
           unreadCount: increment(1), // Incrementa contador de não lidas para o admin
-          isUserTyping: false // Stop typing indicator on send
+          isUserTyping: false, // Stop typing indicator on send
+          // Atualiza atividade para aparecer online pro admin
+          userLastActive: serverTimestamp()
       };
 
       await setDoc(ticketRef, ticketPayload, { merge: true });

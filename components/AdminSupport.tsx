@@ -178,6 +178,23 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
         }
     };
 
+    // Função para verificar se o usuário está online (ativo nos últimos 2 mins)
+    const isUserOnline = (ticket: Ticket) => {
+        if (!ticket.userLastActive) return false;
+        
+        let lastActiveTime = 0;
+        if (ticket.userLastActive.toMillis) {
+            lastActiveTime = ticket.userLastActive.toMillis();
+        } else if (ticket.userLastActive.seconds) {
+            lastActiveTime = ticket.userLastActive.seconds * 1000;
+        } else if (ticket.userLastActive instanceof Date) {
+            lastActiveTime = ticket.userLastActive.getTime();
+        }
+
+        // Se a diferença for menor que 2 minutos (120000ms), considera online
+        return (Date.now() - lastActiveTime) < 120000;
+    };
+
     return (
         <div className="flex h-[calc(100vh-140px)] bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
             
@@ -218,7 +235,12 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
                                 className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-white transition-colors relative ${selectedTicketId === ticket.id ? 'bg-white border-l-4 border-l-blue-600 shadow-sm' : ''}`}
                             >
                                 <div className="flex justify-between items-start mb-1">
-                                    <h4 className={`font-bold text-sm ${ticket.unreadCount > 0 ? 'text-gray-900' : 'text-gray-700'}`}>{ticket.userName}</h4>
+                                    <div className="flex items-center gap-1.5">
+                                        <h4 className={`font-bold text-sm ${ticket.unreadCount > 0 ? 'text-gray-900' : 'text-gray-700'}`}>{ticket.userName}</h4>
+                                        {isUserOnline(ticket) && (
+                                            <span className="w-2 h-2 rounded-full bg-green-500 shadow-sm" title="Online Agora"></span>
+                                        )}
+                                    </div>
                                     <span className="text-[10px] text-gray-400">{new Date(ticket.updatedAt?.toMillis?.() || Date.now()).toLocaleDateString('pt-BR', {day:'2-digit', month:'short'})}</span>
                                 </div>
                                 <p className={`text-xs truncate mb-2 ${ticket.unreadCount > 0 ? 'font-bold text-gray-800' : 'text-gray-500'}`}>
@@ -254,8 +276,17 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
                 <div className="flex-1 flex flex-col min-w-0 bg-white relative">
                     {/* Header Chat */}
                     <div className="h-16 border-b border-gray-100 flex justify-between items-center px-6 bg-white shrink-0">
-                        <div>
-                            <h3 className="font-bold text-gray-800">{selectedTicket.userName}</h3>
+                        <div className="flex flex-col">
+                            <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                                {selectedTicket.userName}
+                                {isUserOnline(selectedTicket) ? (
+                                    <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> Online
+                                    </span>
+                                ) : (
+                                    <span className="text-[10px] font-medium text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">Offline</span>
+                                )}
+                            </h3>
                             <p className="text-xs text-gray-500">{selectedTicket.userEmail}</p>
                         </div>
                         <div className="flex items-center gap-3">
