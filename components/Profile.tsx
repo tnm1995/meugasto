@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import type { User } from '../types';
-import { PremiumIcon, ChevronRightIcon, LogoutIcon, PolicyIcon, DescriptionIcon, SupportAgentIcon, TrophyIcon, AdminPanelSettingsIcon } from './Icons'; // Adicionado AdminPanelSettingsIcon
+import { PremiumIcon, ChevronRightIcon, LogoutIcon, PolicyIcon, DescriptionIcon, SupportAgentIcon, TrophyIcon, AdminPanelSettingsIcon, TrashIcon } from './Icons'; // Adicionado TrashIcon
 import { DEFAULT_PROFILE_IMAGE, getLevelInfo } from '../types'; // Import from types.ts, adicionado getLevelInfo
 import { useToast } from '../contexts/ToastContext'; // Importa useToast
 
@@ -14,7 +14,8 @@ interface ProfileProps {
   onOpenPrivacyPolicy: () => void;
   onOpenTermsOfService: () => void;
   onOpenSupport: () => void;
-  onOpenAdminPanel: () => void; // Nova prop
+  onOpenAdminPanel: () => void;
+  onResetData: () => Promise<boolean>; // Nova prop
 }
 
 const compressImage = (file: File, maxWidth: number, maxHeight: number, quality: number, mimeType: string = 'image/jpeg'): Promise<string> => {
@@ -69,10 +70,12 @@ export const Profile: React.FC<ProfileProps> = ({
   onOpenPrivacyPolicy,
   onOpenTermsOfService,
   onOpenSupport,
-  onOpenAdminPanel
+  onOpenAdminPanel,
+  onResetData
 }) => {
   const [fileInputKey, setFileInputKey] = useState(Date.now()); // Key to force re-render of file input
   const { showToast } = useToast(); // Hook para mostrar toasts
+  const [isResetting, setIsResetting] = useState(false);
 
   const handleImageChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -123,6 +126,14 @@ export const Profile: React.FC<ProfileProps> = ({
       }
     }
   }, [onUpdateProfileImage, showToast]);
+
+  const handleResetClick = async () => {
+    if (window.confirm("Tem certeza absoluta? Esta ação apagará TODOS os seus lançamentos (receitas e despesas) permanentemente. Não é possível desfazer.")) {
+      setIsResetting(true);
+      await onResetData();
+      setIsResetting(false);
+    }
+  };
 
   const triggerFileInput = useCallback(() => {
     const fileInput = document.getElementById('profile-image-upload');
@@ -234,6 +245,21 @@ export const Profile: React.FC<ProfileProps> = ({
             <span className="font-medium text-gray-700">Suporte</span>
           </div>
           <ChevronRightIcon className="text-lg text-gray-400" />
+        </button>
+      </div>
+
+      <div className="bg-red-50 p-6 rounded-2xl border border-red-100 space-y-4">
+        <h3 className="text-lg font-semibold text-red-800">Zona de Perigo</h3>
+        <button 
+            onClick={handleResetClick} 
+            disabled={isResetting}
+            className="flex items-center justify-between w-full py-3 px-3 bg-white text-red-600 font-bold rounded-xl border border-red-200 hover:bg-red-100 transition-colors disabled:opacity-50"
+        >
+            <div className="flex items-center gap-2">
+                <TrashIcon className="text-xl" />
+                {isResetting ? 'Apagando...' : 'Resetar Lançamentos'}
+            </div>
+            {!isResetting && <span className="text-[10px] bg-red-100 text-red-800 px-2 py-1 rounded">Cuidado</span>}
         </button>
       </div>
 

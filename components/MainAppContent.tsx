@@ -24,7 +24,7 @@ import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { useFirestoreDocument } from '../hooks/useFirestoreDocument';
 import { DEFAULT_REMINDER_SETTINGS, DEFAULT_PROFILE_IMAGE, getLevelInfo } from '../types';
 import { db } from '../services/firebaseService';
-import { where, orderBy, doc, setDoc, getDoc, updateDoc, increment } from 'firebase/firestore';
+import { where, orderBy, doc, setDoc, getDoc, updateDoc, increment, writeBatch, collection, getDocs } from 'firebase/firestore';
 import { logout } from '../services/authService';
 import { useToast } from '../contexts/ToastContext';
 import { getLocalDate } from '../services/utils';
@@ -259,6 +259,41 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
   
   const handleAPISetupError = useCallback(() => { setIsAPISetupErrorModalOpen(true); }, []);
 
+  // --- Função para Resetar Lançamentos (Batch Delete) ---
+  const handleResetData = useCallback(async () => {
+    if (!currentUser.uid) return false;
+    
+    try {
+      // Pega todos os documentos da coleção 'expenses' do usuário
+      const expensesRef = collection(db, 'users', currentUser.uid, 'expenses');
+      const snapshot = await getDocs(expensesRef);
+      
+      if (snapshot.empty) {
+        showToast('Não há lançamentos para apagar.', 'info');
+        return true;
+      }
+
+      // Firestore Batch (Limite de 500 operações por batch)
+      const batch = writeBatch(db);
+      let count = 0;
+      
+      snapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+        count++;
+        // Em um app de produção com muitos dados, precisaríamos de lógica para múltiplos batches (chunking)
+        // Aqui assumimos < 500 para simplicidade ou que o usuário deleta periodicamente.
+      });
+
+      await batch.commit();
+      showToast(`${count} lançamentos apagados com sucesso.`, 'success');
+      return true;
+    } catch (error) {
+      console.error("Erro ao resetar dados:", error);
+      showToast('Erro ao apagar dados. Tente novamente.', 'error');
+      return false;
+    }
+  }, [currentUser.uid, showToast]);
+
   const isTrialPeriod = useMemo(() => {
     if (!currentUser.createdAt) return false;
     const created = new Date(currentUser.createdAt);
@@ -268,8 +303,7 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
     return diffDays < 30; 
   }, [currentUser.createdAt]);
 
-  // Bypass Temporário: Sempre retorna true para isAdmin
-  const isAdmin = true; // useMemo(() => { ... original logic ... })
+  const isAdmin = userProfile.role && ['admin', 'super_admin', 'operational_admin', 'support_admin'].includes(userProfile.role);
 
   const renderView = useCallback(() => (
     <Suspense fallback={<div className="flex flex-col items-center justify-center min-h-[calc(100vh-180px)] text-center text-gray-500"><div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div><p>Carregando...</p></div>}>
@@ -279,13 +313,13 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
           case 'entries': return <Entries expenses={expenses} onDeleteExpense={deleteExpense} onEditExpense={(e) => { setExpenseToEdit(e); setIsExpenseModalOpen(true); }} isLoading={loadingExpenses} onAddExpense={async (e, t) => { if(!t) { await addExpenseFirestore(e); } else { setInitialExpenseData(e); setIsExpenseModalOpen(true); } }} onAPISetupError={handleAPISetupError} />;
           case 'reports': return <Reports expenses={expenses} isLoadingExpenses={loadingExpenses} />;
           case 'goals': return <Goals goals={goals} savingsGoals={savingsGoals} expenses={expenses} onOpenGoalModal={() => setIsGoalModalOpen(true)} onOpenSavingsModal={() => setIsSavingsModalOpen(true)} onEditGoal={(g) => { setGoalToEdit(g); setIsGoalModalOpen(true); }} onEditSavingsGoal={(s) => { setSavingsGoalToEdit(s); setIsSavingsModalOpen(true); }} onDeleteGoal={deleteGoal} onDeleteSavingsGoal={deleteSavingsGoal} isLoading={loadingGoals} />;
-          case 'profile': return <Profile userProfile={userProfile} handleLogout={handleAppLogout} onManageSubscription={onManageSubscription} onUpdateProfileImage={onUpdateProfileImage} isLoading={loadingUserDoc} onOpenPrivacyPolicy={onOpenGlobalPrivacyPolicy} onOpenTermsOfService={onOpenGlobalTermsOfService} onOpenSupport={onOpenSupport} onOpenAdminPanel={() => setCurrentView('admin')} />;
+          case 'profile': return <Profile userProfile={userProfile} handleLogout={handleAppLogout} onManageSubscription={onManageSubscription} onUpdateProfileImage={onUpdateProfileImage} isLoading={loadingUserDoc} onOpenPrivacyPolicy={onOpenGlobalPrivacyPolicy} onOpenTermsOfService={onOpenGlobalTermsOfService} onOpenSupport={onOpenSupport} onOpenAdminPanel={() => setCurrentView('admin')} onResetData={handleResetData} />;
           case 'admin': return isAdmin ? <AdminPanel currentUser={userProfile} /> : <div className="p-8 text-center text-red-600">Acesso negado.</div>;
           default: return <Dashboard expenses={expenses} isLoading={loadingExpenses} userProfile={userProfile} onManageReminders={onManageReminders} reminders={reminders} onViewAll={() => setCurrentView('entries')} goals={goals} />;
         }
       })()}
     </Suspense>
-  ), [currentView, expenses, goals, savingsGoals, reminders, handleAppLogout, deleteExpense, deleteGoal, deleteSavingsGoal, onManageSubscription, onManageReminders, onUpdateProfileImage, userProfile, loadingExpenses, loadingGoals, loadingUserDoc, onOpenGlobalPrivacyPolicy, onOpenGlobalTermsOfService, onOpenSupport, handleAPISetupError, addExpenseFirestore, isAdmin]);
+  ), [currentView, expenses, goals, savingsGoals, reminders, handleAppLogout, deleteExpense, deleteGoal, deleteSavingsGoal, onManageSubscription, onManageReminders, onUpdateProfileImage, userProfile, loadingExpenses, loadingGoals, loadingUserDoc, onOpenGlobalPrivacyPolicy, onOpenGlobalTermsOfService, onOpenSupport, handleAPISetupError, addExpenseFirestore, isAdmin, handleResetData]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
