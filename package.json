@@ -11,6 +11,7 @@
   "dependencies": {
     "@google/genai": "*",
     "firebase": "10.12.0",
+    "framer-motion": "^12.23.26",
     "pdfjs-dist": "^4.2.67",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
