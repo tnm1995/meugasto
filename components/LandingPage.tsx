@@ -26,6 +26,7 @@ interface LandingPageProps {
   onStart: (view: 'login' | 'register' | 'privacy' | 'terms') => void;
   scrollTarget?: string | null;
   clearScrollTarget?: () => void;
+  onOpenSupport: () => void;
 }
 
 // --- ANIMATED GRADIENT BACKGROUND COMPONENT ---
@@ -1187,7 +1188,7 @@ const FAQItem: React.FC<{ question: string; answer: string }> = ({ question, ans
     );
 };
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onStart, scrollTarget, clearScrollTarget }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ onStart, scrollTarget, clearScrollTarget, onOpenSupport }) => {
   const { pricing } = useSystemSettings();
 
   useEffect(() => {
@@ -1683,7 +1684,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, scrollTarget,
                   <div className="flex flex-wrap justify-center gap-8 text-sm text-gray-600">
                       <button onClick={() => onStart('terms')} className="hover:text-blue-600 transition-colors">Termos de Uso</button>
                       <button onClick={() => onStart('privacy')} className="hover:text-blue-600 transition-colors">Política de Privacidade</button>
-                      <a href="mailto:suporte@meugasto.app" className="hover:text-blue-600 transition-colors">Contato</a>
+                      <button onClick={onOpenSupport} className="hover:text-blue-600 transition-colors">Suporte</button>
                   </div>
                   
                   <p className="text-xs text-gray-400">

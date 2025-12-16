@@ -334,7 +334,12 @@ const App: React.FC = () => {
 
   return (
     <ToastProvider> 
-      {appState === 'landing' && <LandingPage onStart={handleStart} scrollTarget={landingScrollTarget} clearScrollTarget={() => setLandingScrollTarget(null)} />}
+      {appState === 'landing' && <LandingPage 
+        onStart={handleStart} 
+        scrollTarget={landingScrollTarget} 
+        clearScrollTarget={() => setLandingScrollTarget(null)} 
+        onOpenSupport={onOpenSupportChat}
+      />}
       
       {appState === 'auth' && (
         <Auth 
