@@ -29,6 +29,7 @@ import { where, orderBy, doc, setDoc, getDoc, updateDoc, increment, writeBatch, 
 import { logout } from '../services/authService';
 import { useToast } from '../contexts/ToastContext';
 import { getLocalDate } from '../services/utils';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface MainAppContentProps {
   currentUser: User;
@@ -302,8 +303,14 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
 
   const isAdmin = userProfile.role && ['admin', 'super_admin', 'operational_admin', 'support_admin'].includes(userProfile.role);
 
+  // Wrapper para as Views com Animação
   const renderView = useCallback(() => (
-    <Suspense fallback={<div className="flex flex-col items-center justify-center min-h-[calc(100vh-180px)] text-center text-gray-500"><div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div><p>Carregando...</p></div>}>
+    <Suspense fallback={
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-180px)] text-center text-gray-500">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
+            <p>Carregando...</p>
+        </div>
+    }>
       {(() => {
         switch (currentView) {
           case 'dashboard': return <Dashboard expenses={expenses} isLoading={loadingExpenses} userProfile={userProfile} onManageReminders={onManageReminders} reminders={reminders} onViewAll={() => setCurrentView('entries')} goals={goals} />;
@@ -360,10 +367,21 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
                 </div>
             )}
 
-            {/* Scrollable Main View */}
-            <main className={`flex-1 overflow-y-auto pb-24 md:pb-8 view-transition w-full px-4 sm:px-6 lg:px-8 custom-scrollbar ${expirationWarning?.show ? 'pt-24' : 'pt-4'}`}>
-                <div className="max-w-7xl mx-auto">
-                    {renderView()}
+            {/* Scrollable Main View com Animação de Transição */}
+            <main className={`flex-1 overflow-y-auto pb-24 md:pb-8 w-full px-4 sm:px-6 lg:px-8 custom-scrollbar ${expirationWarning?.show ? 'pt-24' : 'pt-4'}`}>
+                <div className="max-w-7xl mx-auto h-full">
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={currentView}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.25, ease: "easeInOut" }}
+                            className="h-full w-full"
+                        >
+                            {renderView()}
+                        </motion.div>
+                    </AnimatePresence>
                 </div>
             </main>
 
