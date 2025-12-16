@@ -2,33 +2,57 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Função auxiliar para verificar se o usuário é admin
+    // Verifica o campo 'role' dentro do documento do usuário que está fazendo a requisição
+    function isAdmin() {
+      return request.auth != null && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['super_admin', 'admin', 'operational_admin', 'support_admin'];
+    }
+
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Usuário lê/escreve o próprio doc; Admin lê/escreve qualquer um (necessário para o Painel Admin)
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow write: if request.auth != null && (request.auth.uid == userId || isAdmin());
       
       match /expenses/{expenseId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if request.auth != null && (request.auth.uid == userId || isAdmin());
       }
       match /budgets/{budgetId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if request.auth != null && (request.auth.uid == userId || isAdmin());
       }
       match /goals/{goalId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if request.auth != null && (request.auth.uid == userId || isAdmin());
       }
       match /savings_goals/{goalId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if request.auth != null && (request.auth.uid == userId || isAdmin());
       }
       match /reminders/{reminderId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if request.auth != null && (request.auth.uid == userId || isAdmin());
       }
       match /support_messages/{messageId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        // Usuário conversa no próprio chat; Admin vê e responde
+        allow read, write: if request.auth != null && (request.auth.uid == userId || isAdmin());
       }
+    }
+    
+    // Coleção de Tickets (Suporte) - Onde o erro ao enviar mensagem ocorria
+    match /tickets/{ticketId} {
+      // Usuário pode criar/atualizar seu próprio ticket (ID do ticket = UID do usuário)
+      allow create, update, read: if request.auth != null && request.auth.uid == ticketId;
+      // Admin tem acesso total para gerenciar tickets
+      allow read, write: if isAdmin();
+    }
+
+    // Coleção de Logs de Auditoria (Painel Admin)
+    match /admin_logs/{logId} {
+      allow read, write: if isAdmin();
     }
     
     // Regra para a coleção de configurações globais
     match /settings/{document=**} {
       allow read: if true; // Todos podem ler (para ver preços)
-      allow write: if false; // Ninguém escreve via cliente direto (apenas Admin SDK/Console)
+      allow write: if isAdmin(); // Apenas admin altera preços
     }
   }
 }
