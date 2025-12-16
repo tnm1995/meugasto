@@ -26,21 +26,21 @@ const expenseResponseSchema = {
       items: {
         type: Type.OBJECT,
         properties: {
-          name: { type: Type.STRING },
-          price: { type: Type.NUMBER },
+          name: { type: Type.STRING, description: "Nome limpo do produto (sem códigos iniciais como 001, 1234, etc)." },
+          price: { type: Type.NUMBER, description: "Preço total do item (quantidade x valor unitário)." },
         },
         required: ['name', 'price'],
       },
-      description: "Lista de produtos ou serviços adquiridos com seus respectivos preços unitários ou totais do item."
+      description: "Lista exata de todos os produtos comprados listados no cupom."
     },
     total: { type: Type.NUMBER, description: "Valor total final da nota fiscal." },
     category: { 
       type: Type.STRING, 
-      description: `A Categoria Principal da despesa. Deve ser EXATAMENTE uma das chaves desta lista:\n${Object.keys(CATEGORIES).join(', ')}` 
+      description: `A Categoria Principal da despesa baseada na MAIORIA dos itens. Deve ser EXATAMENTE uma das chaves: ${Object.keys(CATEGORIES).join(', ')}` 
     },
     subcategory: { 
       type: Type.STRING, 
-      description: `A Subcategoria mais específica. Deve ser EXATAMENTE uma das opções listadas dentro da Categoria escolhida acima.` 
+      description: `A Subcategoria mais específica. Deve ser EXATAMENTE uma das opções listadas dentro da Categoria escolhida.` 
     },
     paymentMethod: { type: Type.STRING, description: "Método de pagamento identificado (Crédito, Débito, Pix, Dinheiro, VR, etc)." }
   },
@@ -67,17 +67,32 @@ export const extractExpenseFromImage = async (base64Image: string): Promise<Omit
       model: 'gemini-2.5-flash',
       contents: { parts: [
         { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
-        { text: `Analise esta imagem de cupom fiscal/recibo.
+        { text: `Você é um especialista em OCR de Cupons Fiscais Brasileiros (NFC-e, SAT, Cupom Fiscal).
         
-        INSTRUÇÕES DE CATEGORIZAÇÃO:
-        Utilize a seguinte estrutura de categorias para classificar a despesa. 
-        Escolha a categoria principal e a subcategoria que melhor descrevem os itens comprados.
+        Sua tarefa é analisar a imagem e extrair os dados estruturados com precisão.
         
+        1. ITENS (CRÍTICO): 
+           - Liste TODOS os produtos visíveis no "Corpo" do cupom.
+           - Ignore linhas de código (ex: "001", "789...") no início do nome. Ex: "001 LEITE" vira "LEITE".
+           - O preço deve ser o valor TOTAL do item (Quantidade x Unitário).
+        
+        2. CATEGORIZAÇÃO:
+           - Analise os itens extraídos.
+           - Use a lista abaixo para classificar a despesa.
+           - Se for um supermercado com itens variados (comida e limpeza), use "Alimentação" -> "Supermercado (Geral)".
+           - Se for apenas itens de jardinagem, use "Moradia" -> "Jardinagem / Plantas".
+           - Se for restaurante, use "Alimentação" -> "Restaurante / Almoço".
+        
+        ESTRUTURA DE CATEGORIAS VÁLIDAS:
         ${categoriesContext}
         
-        Se houver múltiplos tipos de itens (ex: Alimento e Limpeza no mesmo cupom), categorize pelo que representa o maior valor ou use a categoria do estabelecimento (ex: Supermercado).
+        3. DADOS GERAIS:
+           - Local: Nome Fantasia da loja (topo do cupom).
+           - Data: Data de emissão (procure por data/hora).
+           - Total: Valor final pago.
+           - Pagamento: Forma de pagamento (ex: Crédito, Pix).
         
-        Extraia: Local, Data (YYYY-MM-DD), Itens, Total, Categoria e Subcategoria (exatas da lista), e Forma de Pagamento.` }
+        Retorne APENAS o JSON conforme o schema.` }
       ] },
       config: {
         responseMimeType: 'application/json',
@@ -114,9 +129,9 @@ export const extractExpenseFromImage = async (base64Image: string): Promise<Omit
     }
     
     return {
-        localName: parsedData.localName || 'Desconhecido',
+        localName: parsedData.localName || 'Despesa Identificada',
         purchaseDate: parsedData.purchaseDate || new Date().toISOString().split('T')[0],
-        items: parsedData.items || [],
+        items: Array.isArray(parsedData.items) ? parsedData.items : [],
         total: typeof parsedData.total === 'number' ? parsedData.total : 0,
         category: finalCategory,
         subcategory: finalSubcategory,
