@@ -1,0 +1,7 @@
+{
+  "name": "MeuGasto 3.3v",
+  "description": "Um aplicativo de controle financeiro que utiliza IA para ler recibos, categorizar despesas e fornecer insights visuais sobre seus hábitos de consumo.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
