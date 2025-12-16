@@ -162,54 +162,51 @@ export type View = 'dashboard' | 'entries' | 'reports' | 'profile' | 'goals' | '
 
 export const EXPENSE_CATEGORIES: Record<string, string[]> = {
     'Alimentação': [
-      'Supermercado', 'Restaurante', 'Cafeteria', 'Delivery / Fast Food', 'Padaria', 'Açougue', 'Feira / Hortifruti', 'Conveniência', 'Mercearia', 'Outros - Alimentação'
+      'Supermercado (Geral)', 'Restaurante / Almoço', 'Lanches / Fast Food', 'Padaria / Café', 'Açougue / Peixaria', 'Hortifruti', 'Bebidas (Não Alcoólicas)', 'Bebidas Alcoólicas', 'Delivery (iFood/Rappi)', 'Doces e Sobremesas'
     ],
     'Moradia': [
-      'Aluguel / Financiamento', 'Condomínio', 'Contas (Água, Luz, Gás)', 'Internet / TV / Telefone', 'Manutenção / Reparos', 'Móveis / Decoração', 'IPTU', 'Seguro Residencial', 'Limpeza', 'Jardinagem', 'Consertos Domésticos', 'Outros - Moradia'
+      'Aluguel / Condomínio', 'Energia Elétrica', 'Água e Esgoto', 'Gás', 'Internet / TV / Celular', 'Manutenção e Reparos', 'Produtos de Limpeza', 'Artigos para o Lar', 'IPTU / Seguros', 'Decoração'
     ],
     'Transporte': [
-      'Combustível', 'Transporte Público', 'Aplicativos (Uber, 99)', 'Manutenção do Veículo', 'Estacionamento', 'Pedágio', 'Seguro / IPVA', 'Multas', 'Lavagem', 'Táxi', 'Aluguel de Carro', 'Outros - Transporte'
+      'Combustível (Gasolina/Etanol)', 'Uber / 99 / Táxi', 'Transporte Público (Ônibus/Metrô)', 'Manutenção Veicular', 'Estacionamento', 'Pedágio', 'IPVA / Licenciamento', 'Seguro Auto', 'Multas', 'Lavagem Automotiva'
     ],
-    'Lazer': [
-      'Cinema / Teatro / Shows', 'Streaming (Netflix, Spotify)', 'Bares / Festas', 'Passeios / Viagens', 'Livros / Revistas', 'Jogos', 'Hobbies', 'Parques', 'Eventos Esportivos', 'Shows / Festivais', 'Jantares Especiais', 'Baladas', 'Outros - Lazer'
+    'Saúde e Higiene': [
+      'Farmácia / Medicamentos', 'Higiene Pessoal (Shampoo/Sabonete)', 'Cosméticos / Maquiagem', 'Consultas Médicas', 'Exames', 'Plano de Saúde', 'Dentista', 'Terapia / Psicólogo', 'Academia / Esportes', 'Suplementos'
     ],
-    'Saúde': [
-      'Farmácia / Medicamentos', 'Plano de Saúde', 'Consultas / Exames', 'Academia / Esportes', 'Terapia', 'Dentista', 'Óculos / Lentes', 'Massagem', 'Fisioterapia', 'Exames Laboratoriais', 'Outros - Saúde'
-    ],
-    'Cuidados Pessoais': [
-      'Salão / Barbearia', 'Cosméticos / Perfumes', 'Massagens', 'Estética', 'Manicure / Pedicure', 'Produtos de Higiene', 'Outros - Cuidados Pessoais'
-    ],
-    'Vestuário': [
-      'Roupas', 'Calçados', 'Acessórios', 'Lavanderia', 'Alfaiataria', 'Joias', 'Outros - Vestuário'
+    'Lazer e Entretenimento': [
+      'Cinema / Teatro / Shows', 'Streaming (Netflix, Spotify, etc)', 'Bares e Baladas', 'Viagens e Passeios', 'Jogos / Videogames', 'Livros e Revistas', 'Hobbies', 'Restaurante (Jantar/Especial)', 'Ingressos'
     ],
     'Educação': [
-      'Cursos / Faculdade', 'Material Escolar', 'Livros Técnicos', 'Idiomas', 'Pós-Graduação', 'Workshops', 'Aulas Particulares', 'Outros - Educação'
+      'Mensalidade Escolar/Faculdade', 'Cursos Livres / Idiomas', 'Material Escolar / Papelaria', 'Livros Técnicos', 'Uniformes'
     ],
-    'Compras': [
-      'Eletrônicos', 'Presentes', 'Casa / Jardim', 'Eletrodomésticos', 'Roupas de Cama / Banho', 'Brinquedos', 'Aparelhos Celulares', 'Computadores', 'Outros - Compras'
+    'Vestuário': [
+      'Roupas', 'Calçados', 'Acessórios (Bolsas/Cintos)', 'Joias e Relógios', 'Lavanderia / Costureira'
     ],
-    'Serviços': [
-      'Serviços Financeiros / Taxas', 'Assinaturas', 'Serviços Profissionais', 'Advogado', 'Contador', 'Consultoria', 'Limpeza Doméstica', 'Conserto de Eletrônicos', 'Outros - Serviços'
+    'Compras e Eletrônicos': [
+      'Eletrônicos / Gadgets', 'Eletrodomésticos', 'Celulares e Acessórios', 'Presentes', 'Brinquedos'
     ],
-    'Impostos e Taxas': [
-      'Imposto de Renda', 'IPVA', 'IPTU', 'Taxas Bancárias', 'Licenciamento de Veículo', 'Outros - Impostos e Taxas'
+    'Serviços e Taxas': [
+      'Assinaturas Online', 'Serviços Bancários / Tarifas', 'Cabeleireiro / Barbeiro', 'Manicure / Estética', 'Serviços Profissionais (Contador/Advogado)', 'Taxas Governamentais'
+    ],
+    'Pets': [
+      'Ração e Petiscos', 'Veterinário / Vacinas', 'Banho e Tosa', 'Acessórios e Brinquedos', 'Medicamentos Pet'
     ],
     'Investimentos': [
-      'Ações', 'Fundos', 'Renda Fixa', 'Criptomoedas', 'Previdência Privada', 'Tesouro Direto', 'Outros - Investimentos'
+      'Aporte Mensal', 'Previdência Privada', 'Reserva de Emergência', 'Criptomoedas'
     ],
-    'Dívidas e Empréstimos': [
-      'Empréstimo Pessoal', 'Financiamento de Carro', 'Financiamento Imobiliário', 'Cartão de Crédito (Pagamento Fatura)', 'Cheque Especial', 'Consórcio', 'Outros - Dívidas'
+    'Dívidas e Crédito': [
+      'Pagamento de Cartão de Crédito', 'Empréstimo Pessoal', 'Financiamento', 'Cheque Especial', 'Negociação de Dívidas'
     ],
     'Outros': [
-      'Doações', 'Pets', 'Despesa não categorizada', 'Diversos', 'Multas / Juros', 'Seguros (Outros)'
+      'Doações / Caridade', 'Imprevistos', 'Saques em Dinheiro', 'Não Identificado'
     ]
 };
 
 export const INCOME_CATEGORIES: Record<string, string[]> = {
-    'Salário': ['Mensal', 'Adiantamento', '13º Salário', 'Férias'],
-    'Empreendedorismo': ['Vendas de Produtos', 'Prestação de Serviços', 'Pró-labore', 'Lucros'],
-    'Investimentos': ['Dividendos', 'Juros sobre Capital', 'Rendimento Poupança', 'Aluguéis (FIIs)', 'Criptomoedas'],
-    'Extra': ['Freelance', 'Venda de Bens', 'Cashback', 'Reembolso', 'Presente'],
+    'Salário': ['Mensal', 'Adiantamento (Vale)', '13º Salário', 'Férias', 'Bônus / PLR'],
+    'Empreendedorismo': ['Vendas de Produtos', 'Prestação de Serviços', 'Pró-labore', 'Lucros Distribuidos'],
+    'Renda Passiva': ['Dividendos / Juros', 'Aluguéis (Imóveis/FIIs)', 'Rendimento Poupança/CDB'],
+    'Renda Extra': ['Freelance / Bicos', 'Venda de Bens Usados', 'Cashback', 'Reembolso', 'Presentes em Dinheiro'],
     'Outros': ['Outras Receitas']
 };
 
@@ -221,6 +218,7 @@ export const PAYMENT_METHODS: string[] = [
   'Cartão de Débito',
   'Dinheiro',
   'Pix',
+  'Vale Refeição/Alimentação',
   'Boleto',
   'Transferência Bancária',
   'Outro'
