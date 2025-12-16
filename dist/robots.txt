@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /obrigado
+Disallow: /obrigado-kirvano
+Disallow: /api/
+
+Sitemap: https://meugasto.app/sitemap.xml
