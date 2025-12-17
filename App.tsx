@@ -35,14 +35,15 @@ const App: React.FC = () => {
   const [isSupportChatOpen, setIsSupportChatOpen] = useState(false); // Chat global
   
   // Estado local para saber a view atual dentro do App (Dashboard, Profile, etc)
-  // Necessário para controlar a visibilidade do botão de chat no mobile
   const [currentAppView, setCurrentAppView] = useState<View>('dashboard');
 
   const safePushState = (path: string) => {
     try {
-        window.history.pushState({}, '', path);
+        if (window.location.pathname !== path) {
+            window.history.pushState({}, '', path);
+        }
     } catch (e) {
-        console.warn('History pushState failed (likely environment restriction):', e);
+        console.warn('History pushState failed:', e);
     }
   };
 
@@ -52,14 +53,10 @@ const App: React.FC = () => {
 
     const updatePresence = async () => {
         try {
-            // Atualiza documento do USUÁRIO (para lista de usuários no Admin)
             const userRef = doc(db, 'users', currentUser.uid);
             await updateDoc(userRef, { 
                 lastSeen: serverTimestamp() 
             });
-
-            // Tenta atualizar também o ticket para o chat, se existir (sem criar erro se não existir)
-            // Isso garante compatibilidade com o chat de suporte
             const ticketRef = doc(db, 'tickets', currentUser.uid);
             updateDoc(ticketRef, { userLastActive: serverTimestamp() }).catch(() => {});
         } catch (e) {
@@ -67,15 +64,16 @@ const App: React.FC = () => {
         }
     };
 
-    // Atualiza imediatamente e depois a cada 60s
     updatePresence();
     const interval = setInterval(updatePresence, 60000);
 
     return () => clearInterval(interval);
   }, [appState, currentUser?.uid]);
 
+  // Initial Route Check
   useEffect(() => {
     const path = window.location.pathname;
+    
     if (path === '/login') {
         setAppState('auth');
         setAuthInitialView('login');
@@ -84,6 +82,11 @@ const App: React.FC = () => {
         setAuthInitialView('register');
     } else if (path === '/obrigado') {
         setAppState('thankyou');
+    } else if (['/dashboard', '/lancamentos', '/relatorios', '/perfil', '/planejamento', '/admin'].includes(path)) {
+        // Se estiver em uma rota de app, setamos loading até validar a sessão
+        // A validação de sessão cuidará de mudar o appState para 'app'
+    } else if (path === '/') {
+        setAppState('landing');
     }
 
     const handlePopState = () => {
@@ -97,15 +100,20 @@ const App: React.FC = () => {
         } else if (currentPath === '/obrigado') {
             setAppState('thankyou');
         } else if (currentPath === '/') {
-            if (appState === 'auth' || appState === 'thankyou') {
-                setAppState('landing');
+            setAppState('landing');
+        } else if (['/dashboard', '/lancamentos', '/relatorios', '/perfil', '/planejamento', '/admin'].includes(currentPath)) {
+            if (currentUser) {
+                setAppState('app');
+            } else {
+                // Se tentar acessar rota protegida sem user, vai pro login ou landing
+                // Deixa o auth listener decidir
             }
         }
     };
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [appState]);
+  }, [currentUser]); // Adicionado currentUser dependency para reavaliar rotas protegidas
 
   const validateUserSession = useCallback(async (uid: string, isPeriodicCheck: boolean = false) => {
     if (!isPeriodicCheck) setIsLoadingAuth(true);
@@ -174,8 +182,22 @@ const App: React.FC = () => {
         if (!isPeriodicCheck) {
              if (window.location.pathname !== '/obrigado') {
                  setAppState('app');
-                 if (window.location.pathname !== '/') {
-                     safePushState('/');
+                 
+                 // Lógica de Redirecionamento Inteligente
+                 const currentPath = window.location.pathname;
+                 const validAppPaths = ['/dashboard', '/lancamentos', '/relatorios', '/perfil', '/planejamento', '/admin'];
+                 
+                 // Se o usuário estiver na raiz ou login/cadastro, manda pro dashboard
+                 if (currentPath === '/' || currentPath === '/login' || currentPath === '/cadastro') {
+                     safePushState('/dashboard');
+                 } 
+                 // Se estiver em uma rota válida, mantém ela (não faz nada)
+                 else if (validAppPaths.includes(currentPath)) {
+                     // Mantém a rota atual
+                 }
+                 // Se for rota desconhecida, manda pro dashboard
+                 else {
+                     safePushState('/dashboard');
                  }
              }
         }
@@ -245,11 +267,10 @@ const App: React.FC = () => {
   }, [validateUserSession]);
 
   const handleLogout = useCallback(async () => {
-      // Tentar atualizar status para offline (best effort)
       if (currentUser?.uid) {
           try {
               const userRef = doc(db, 'users', currentUser.uid);
-              await updateDoc(userRef, { lastSeen: new Date(0) }); // Força offline
+              await updateDoc(userRef, { lastSeen: new Date(0) }); 
           } catch(e) {}
       }
       
@@ -270,10 +291,9 @@ const App: React.FC = () => {
   const handleStart = useCallback((view: 'login' | 'register' | 'privacy' | 'terms') => {
     if (view === 'privacy') {
       setIsPrivacyPolicyModalOpen(true);
-      setAppState('landing'); 
+      // Não muda a URL para privacy modal, mantém onde está
     } else if (view === 'terms') {
       setIsTermsOfServiceModalOpen(true);
-      setAppState('landing'); 
     } else {
       setAuthRenderKey(Date.now());
       setAuthInitialView(view);
@@ -318,23 +338,18 @@ const App: React.FC = () => {
     );
   }
 
-  // Lógica de Visibilidade do Botão de Chat
   const showChatButton = (() => {
       if (appState === 'auth' || appState === 'thankyou') return false;
       if (appState === 'landing') return true;
       if (appState === 'app') {
-          // No app, comportamento específico:
-          // Desktop (md): Sempre visível
-          // Mobile: Visível apenas se estiver na tela de 'profile'
-          return true; // Controlado via classes CSS abaixo
+          return true; 
       }
       return false;
   })();
 
-  // Classes dinâmicas para visibilidade
   const chatButtonVisibilityClass = appState === 'app' 
-      ? (currentAppView === 'profile' ? 'flex' : 'hidden md:flex') // Mobile: só profile. Desktop: sempre.
-      : 'flex'; // Landing page: sempre.
+      ? (currentAppView === 'profile' ? 'flex' : 'hidden md:flex') 
+      : 'flex'; 
 
   return (
     <ToastProvider> 
@@ -389,7 +404,7 @@ const App: React.FC = () => {
           onOpenGlobalTermsOfService={onOpenGlobalTermsOfService} 
           expirationWarning={expirationWarning} 
           onOpenSupport={onOpenSupportChat} 
-          onViewChange={setCurrentAppView} // Atualiza o estado local quando a navegação interna muda
+          onViewChange={setCurrentAppView} 
         />
       )}
       {appState === 'app' && !currentUser && (
@@ -418,7 +433,7 @@ const App: React.FC = () => {
                     key="chat-button"
                     layoutId="support-chat-container"
                     onClick={onOpenSupportChat}
-                    style={{ borderRadius: "50%" }} // Garante forma circular no morph
+                    style={{ borderRadius: "50%" }}
                     className={`fixed right-6 w-14 h-14 bg-black hover:scale-110 text-white rounded-full shadow-2xl shadow-black/40 items-center justify-center z-50 group overflow-hidden ${chatButtonVisibilityClass} ${appState === 'app' ? 'bottom-24 md:bottom-6' : 'bottom-6'}`}
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.95 }}
@@ -428,7 +443,6 @@ const App: React.FC = () => {
                     transition={{ type: "spring", stiffness: 350, damping: 30 }}
                     aria-label="Abrir Suporte"
                 >
-                    {/* Liquid Animation Elements - High Contrast */}
                     <div className="absolute inset-0 w-[200%] h-[200%] bg-gray-800 rounded-[40%] top-[90%] left-[-50%] z-0 liquid-wave opacity-50 pointer-events-none"></div>
                     <div className="absolute inset-0 w-[200%] h-[200%] bg-gray-700 rounded-[45%] top-[95%] left-[-50%] z-0 liquid-wave opacity-40 pointer-events-none" style={{ animationDuration: '7s' }}></div>
                     
@@ -436,7 +450,6 @@ const App: React.FC = () => {
                         <ChatBubbleIcon className="text-2xl" />
                     </div>
                     
-                    {/* Tooltip */}
                     <span className="absolute right-full mr-3 bg-black text-white text-xs font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                         Suporte
                     </span>

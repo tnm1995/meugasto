@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useMemo, useEffect, Suspense, lazy } from 'react';
 import type { Expense, View, User, Budget, Goal, Reminder, Omit, SavingsGoal } from '../types';
 // Importa componentes via React.lazy
@@ -40,8 +39,32 @@ interface MainAppContentProps {
   onViewChange?: (view: View) => void; // Callback para notificar mudança de visualização
 }
 
+// Map Helper
+const PATH_TO_VIEW: Record<string, View> = {
+    '/dashboard': 'dashboard',
+    '/lancamentos': 'entries',
+    '/relatorios': 'reports',
+    '/perfil': 'profile',
+    '/planejamento': 'goals',
+    '/admin': 'admin'
+};
+
+const VIEW_TO_PATH: Record<View, string> = {
+    'dashboard': '/dashboard',
+    'entries': '/lancamentos',
+    'reports': '/relatorios',
+    'profile': '/perfil',
+    'goals': '/planejamento',
+    'admin': '/admin'
+};
+
 export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onOpenGlobalPrivacyPolicy, onOpenGlobalTermsOfService, onOpenSupport, expirationWarning, onViewChange }) => {
-  const [currentView, setCurrentView] = useState<View>('dashboard');
+  // Inicializa o estado com base na URL atual, fallback para 'dashboard'
+  const [currentView, setCurrentViewState] = useState<View>(() => {
+      const path = window.location.pathname;
+      return PATH_TO_VIEW[path] || 'dashboard';
+  });
+
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
   const [initialExpenseData, setInitialExpenseData] = useState<Omit<Expense, 'id'> | null>(null);
@@ -57,6 +80,32 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
   const [isAPISetupErrorModalOpen, setIsAPISetupErrorModalOpen] = useState(false);
 
   const { showToast } = useToast();
+
+  // Função Wrapper para mudar a view e atualizar a URL
+  const setCurrentView = (view: View) => {
+      setCurrentViewState(view);
+      const newPath = VIEW_TO_PATH[view];
+      if (newPath && window.location.pathname !== newPath) {
+          window.history.pushState({}, '', newPath);
+      }
+  };
+
+  // Listener para o botão "Voltar" do navegador (popstate)
+  useEffect(() => {
+      const handlePopState = () => {
+          const path = window.location.pathname;
+          const mappedView = PATH_TO_VIEW[path];
+          if (mappedView) {
+              setCurrentViewState(mappedView);
+          } else if (path === '/' || path === '') {
+              // Se voltar para a raiz e estiver logado, assume dashboard
+              setCurrentViewState('dashboard');
+          }
+      };
+
+      window.addEventListener('popstate', handlePopState);
+      return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Notifica o pai (App.tsx) sempre que a view mudar
   useEffect(() => {
