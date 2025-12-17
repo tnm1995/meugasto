@@ -1,9 +1,25 @@
 
-export type View = 'dashboard' | 'entries' | 'reports' | 'profile' | 'goals' | 'admin';
+export type View = 'dashboard' | 'entries' | 'reports' | 'profile' | 'goals' | 'admin' | 'wallets';
 
 export type UserRole = 'user' | 'admin' | 'super_admin' | 'operational_admin' | 'support_admin';
 
 export type UserStatus = 'active' | 'blocked';
+
+export interface SharedWallet {
+  id: string;
+  name: string;
+  ownerId: string;
+  memberUids: string[];
+  inviteCode: string;
+  createdAt: string;
+}
+
+export interface WalletMember {
+  uid: string;
+  name: string;
+  email: string;
+  profileImage: string;
+}
 
 export interface ReminderSettings {
   email: boolean;
@@ -48,6 +64,8 @@ export interface Expense {
   recurrenceFrequency?: 'daily' | 'weekly' | 'monthly' | 'annually';
   type?: 'expense' | 'income';
   items: { name: string; price: number }[];
+  createdByUid?: string; // Para identificar quem gastou na carteira compartilhada
+  createdByName?: string;
 }
 
 export interface BankTransaction {
@@ -196,7 +214,7 @@ export const EXPENSE_CATEGORIES: Record<string, string[]> = {
 export const INCOME_CATEGORIES: Record<string, string[]> = {
     'Salário': ['Mensal', 'Adiantamento', '13º Salário', 'Férias', 'Bônus / PLR'],
     'Empreendimento': ['Vendas de Produtos', 'Prestação de Serviços', 'Pró-labore', 'Lucros / Dividendos'],
-    'Investimentos': ['Dividendos / Juros', 'Aluguéis Recebidos', 'Renda Fixa (Resgate)', 'Venda de Ativos'],
+    'Investimentos': ['Dividendos / Juros', 'Aluguéis Recebidos', 'Renda Fixed (Resgate)', 'Venda de Ativos'],
     'Benefícios': ['Vale Alimentação/Refeição', 'Auxílio Transporte', 'Aposentadoria', 'Bolsas / Auxílios Governo'],
     'Outros': ['Presentes / Doações', 'Reembolsos', 'Venda de Bens Pessoais', 'Empréstimos Recebidos', 'Outros']
 };
