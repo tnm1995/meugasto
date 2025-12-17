@@ -13,9 +13,7 @@ import {
   AdminPanelSettingsIcon, 
   TrashIcon, 
   CalendarTodayIcon, 
-  DateRangeIcon,
-  ShieldCheckIcon,
-  BoltIcon
+  DateRangeIcon
 } from './Icons'; 
 import { DEFAULT_PROFILE_IMAGE, getLevelInfo } from '../types'; 
 import { useToast } from '../contexts/ToastContext'; 
@@ -140,7 +138,6 @@ export const Profile: React.FC<ProfileProps> = ({
 
   return (
     <div className="w-full space-y-6 pb-24 animate-fade-in">
-      {/* Grid Principal do Perfil */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* LADO ESQUERDO: Card de Identidade */}
@@ -199,7 +196,7 @@ export const Profile: React.FC<ProfileProps> = ({
                     <div className="space-y-2 text-center sm:text-left">
                         <div className="flex items-center justify-center sm:justify-start gap-2">
                             <PremiumIcon className={isPremium ? 'text-yellow-400 text-2xl' : 'text-blue-600 text-2xl'} />
-                            <h3 className={`font-black text-xl ${!isPremium && 'text-gray-800'}`}>
+                            <h3 className={`font-black text-xl ${!isPremium ? 'text-gray-800' : ''}`}>
                             {isPremium ? 'Membro Premium Ativo' : 'Evolua para o Premium'}
                             </h3>
                         </div>
@@ -219,18 +216,15 @@ export const Profile: React.FC<ProfileProps> = ({
                 </motion.div>
             </section>
 
-            {/* Grid de Configurações */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
                 <div className="space-y-6">
-                    {/* Admin Quick Access (Se for admin) */}
                     {isAdmin && (
                         <button 
                             onClick={onOpenAdminPanel}
                             className="w-full flex items-center justify-between p-6 bg-gray-900 rounded-3xl text-white shadow-xl hover:bg-black transition-all group"
                         >
                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center">
+                                <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center shrink-0 aspect-square">
                                     <AdminPanelSettingsIcon className="text-2xl" />
                                 </div>
                                 <div className="text-left">
@@ -244,7 +238,6 @@ export const Profile: React.FC<ProfileProps> = ({
                         </button>
                     )}
 
-                    {/* Navigation Group */}
                     <section className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden divide-y divide-gray-50">
                         <SettingItem 
                         icon={<SupportAgentIcon />} 
@@ -271,15 +264,14 @@ export const Profile: React.FC<ProfileProps> = ({
                 </div>
 
                 <div className="space-y-6">
-                    {/* Data Management Section */}
                     <section className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden h-fit">
                         <button 
                         onClick={() => setShowDangerZone(!showDangerZone)}
                         className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-all group"
                         >
                         <div className="flex items-center gap-4">
-                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-orange-600 bg-orange-50 transition-colors ${showDangerZone && 'bg-orange-600 text-white'}`}>
-                            <span className="material-symbols-outlined text-2xl">database</span>
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 aspect-square transition-colors ${showDangerZone ? 'bg-orange-600 text-white' : 'bg-orange-50 text-orange-600'}`}>
+                            <span className="material-symbols-outlined text-2xl font-variation-fill">storage</span>
                             </div>
                             <div className="text-left">
                             <h3 className="text-base font-bold text-gray-800">Dados da Conta</h3>
@@ -325,7 +317,6 @@ export const Profile: React.FC<ProfileProps> = ({
                         )}
                     </section>
 
-                    {/* Logout Button */}
                     <button 
                     onClick={handleLogout} 
                     className="w-full flex items-center justify-center gap-3 p-6 bg-white border border-gray-200 rounded-3xl text-red-600 font-black text-sm uppercase tracking-widest hover:bg-red-50 transition-all shadow-sm active:scale-95 group"
