@@ -40,17 +40,15 @@ export const Header: React.FC<HeaderProps> = ({ userProfile, currentView, onSetV
                 <span className="sm:inline">MeuGasto</span>
             </button>
 
-            {/* Título da Página (Sempre visível, maior no desktop) */}
+            {/* Título da Página (Sempre visível no desktop, escondido no mobile) */}
             <h1 className="text-lg md:text-2xl font-bold text-gray-800 whitespace-nowrap hidden md:block">
                 {getTitle()}
             </h1>
         </div>
 
-        {/* Section on the right for Title (Mobile), Profile, and Logout */}
+        {/* Section on the right for Profile and Logout */}
         <div className="flex items-center space-x-4">
-          <h1 className="md:hidden text-lg font-bold text-gray-800 whitespace-nowrap">
-            {getTitle()}
-          </h1>
+          {/* Título removido no mobile conforme solicitado */}
           
           <button onClick={() => onSetView('profile')} className="w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden border-2 border-gray-200 hover:border-blue-500 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex-shrink-0 aspect-square" aria-label="Ver perfil">
             <img src={userProfile.profileImage} alt="Foto de Perfil" className="w-full h-full object-cover" />
