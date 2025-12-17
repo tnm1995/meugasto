@@ -5,8 +5,6 @@ import { CATEGORIES } from '../types';
 
 // Initialize the Gemini API client directly with the environment variable
 // adhering to the requirement: const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-// Fallback to 'dummy-key' to prevent app crash on startup if key is missing.
-// The API call will catch the invalid key error gracefully.
 // NOTE: process.env.API_KEY is replaced by Vite at build time via define in vite.config.ts.
 const envApiKey = process.env.API_KEY;
 const apiKey = (envApiKey && envApiKey.trim() !== '') ? envApiKey : 'dummy-key';
@@ -70,7 +68,7 @@ const bankTransactionResponseSchema = {
 export const extractExpenseFromImage = async (base64Image: string): Promise<Omit<Expense, 'id'>> => {
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: { parts: [
         { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
         { text: `Você é um especialista em OCR e Contabilidade Brasileira.
@@ -189,7 +187,7 @@ export const extractExpenseFromImage = async (base64Image: string): Promise<Omit
 export const extractTransactionsFromPdfText = async (pdfText: string): Promise<BankTransaction[]> => {
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: { parts: [{ text: `Analise o texto deste extrato bancário e extraia as transações financeiras em JSON. Ignore saldos e cabeçalhos. Texto: ${pdfText}` }] },
       config: {
         responseMimeType: 'application/json',
