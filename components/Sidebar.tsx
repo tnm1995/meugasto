@@ -1,482 +1,161 @@
 
-import React, { useState, useCallback, useMemo, useEffect, Suspense, lazy } from 'react';
-import type { Expense, View, User, Budget, Goal, Reminder, Omit, SavingsGoal, SharedWallet } from '../types';
-// Importa componentes via React.lazy
-const Dashboard = lazy(() => import('./Dashboard').then(module => ({ default: module.Dashboard })));
-const Entries = lazy(() => import('./Entries').then(module => ({ default: module.Entries })));
-const Reports = lazy(() => import('./Reports').then(module => ({ default: module.Reports })));
-const Goals = lazy(() => import('./Goals').then(module => ({ default: module.Goals })));
-const Profile = lazy(() => import('./Profile').then(module => ({ default: module.Profile })));
-const AdminPanel = lazy(() => import('./AdminPanel').then(module => ({ default: module.AdminPanel }))); 
+import React from 'react';
+import { 
+  DashboardIcon, 
+  ListIcon, 
+  ChartIcon, 
+  TargetIcon, 
+  ProfileIcon, 
+  PlusIcon,
+  WalletIcon,
+  LogoutIcon,
+  AdminPanelSettingsIcon,
+  GroupIcon
+} from './Icons';
+import type { View, User, SharedWallet } from '../types';
 
-import { ExpenseModal } from './ExpenseModal';
-import { SubscriptionModal } from './SubscriptionModal';
-import { ReminderModal } from './ReminderModal';
-import { BudgetModal } from './BudgetModal';
-import { GoalModal } from './GoalModal';
-import { SavingsGoalModal } from './SavingsGoalModal'; 
-import { APISetupErrorModal } from './APISetupErrorModal';
-import { SharedWalletManager } from './SharedWalletManager';
-import { PlusIcon } from './Icons';
-import { Header } from './Header';
-import { BottomNavItem } from './BottomNav';
-import { Sidebar } from './Sidebar';
-
-import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
-import { useFirestoreDocument } from '../hooks/useFirestoreDocument';
-import { DEFAULT_REMINDER_SETTINGS, DEFAULT_PROFILE_IMAGE, getLevelInfo } from '../types';
-import { db } from '../services/firebaseService';
-import { where, orderBy, doc, setDoc, getDoc, updateDoc, increment, writeBatch, collection, getDocs, query } from 'firebase/firestore';
-import { logout } from '../services/authService';
-import { useToast } from '../contexts/ToastContext';
-import { getLocalDate } from '../services/utils';
-import { motion, AnimatePresence } from 'framer-motion';
-
-interface MainAppContentProps {
-  currentUser: User;
-  onOpenGlobalPrivacyPolicy: () => void;
-  onOpenGlobalTermsOfService: () => void;
-  onOpenSupport: () => void;
-  expirationWarning?: { show: boolean; days: number };
-  onViewChange?: (view: View) => void;
+interface SidebarProps {
+  currentView: View;
+  onSetView: (view: View) => void;
+  onOpenNewExpense: () => void;
+  onLogout: () => void;
+  userProfile: User;
+  sharedWallets: SharedWallet[];
+  activeWalletId: string | null;
+  onSetActiveWallet: (id: string | null) => void;
+  onOpenWalletManager: () => void;
 }
 
-const PATH_TO_VIEW: Record<string, View> = {
-    '/dashboard': 'dashboard',
-    '/lancamentos': 'entries',
-    '/relatorios': 'reports',
-    '/perfil': 'profile',
-    '/planejamento': 'goals',
-    '/admin': 'admin'
-};
-
-const VIEW_TO_PATH: Record<View, string> = {
-    'dashboard': '/dashboard',
-    'entries': '/lancamentos',
-    'reports': '/relatorios',
-    'profile': '/perfil',
-    'goals': '/planejamento',
-    'admin': '/admin',
-    'wallets': '/perfil'
-};
-
-export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onOpenGlobalPrivacyPolicy, onOpenGlobalTermsOfService, onOpenSupport, expirationWarning, onViewChange }) => {
-  // --- CARTEIRAS COMPARTILHADAS ---
-  const [activeWalletId, setActiveWalletId] = useState<string | null>(null);
-  const [isWalletManagerOpen, setIsWalletManagerOpen] = useState(false);
-
-  // Busca carteiras onde o usuário é membro
-  const walletQuery = useMemo(() => [where('memberUids', 'array-contains', currentUser.uid)], [currentUser.uid]);
-  const { data: sharedWallets } = useFirestoreCollection<SharedWallet>('shared_wallets', null, walletQuery, 'shared_wallets');
-
-  const activeWalletName = useMemo(() => {
-      if (!activeWalletId) return 'Minha Conta';
-      return sharedWallets.find(w => w.id === activeWalletId)?.name || 'Carteira Coletiva';
-  }, [activeWalletId, sharedWallets]);
-
-  // --- LOGICA DE CAMINHOS DINAMICOS ---
-  // Se houver activeWalletId, usamos o caminho da carteira compartilhada, senão o padrão de usuário
-  const expensePath = activeWalletId ? `shared_wallets/${activeWalletId}/expenses` : null;
-  const goalsPath = activeWalletId ? `shared_wallets/${activeWalletId}/goals` : null;
-  const savingsPath = activeWalletId ? `shared_wallets/${activeWalletId}/savings_goals` : null;
-
-  const [currentView, setCurrentViewState] = useState<View>(() => {
-      const path = window.location.pathname;
-      return PATH_TO_VIEW[path] || 'dashboard';
-  });
-
-  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
-  const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
-  const [initialExpenseData, setInitialExpenseData] = useState<Omit<Expense, 'id'> | null>(null);
+export const Sidebar: React.FC<SidebarProps> = ({ 
+  currentView, 
+  onSetView, 
+  onOpenNewExpense, 
+  onLogout,
+  userProfile,
+  sharedWallets,
+  activeWalletId,
+  onSetActiveWallet,
+  onOpenWalletManager
+}) => {
   
-  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false); 
-  const [goalToEdit, setGoalToEdit] = useState<Goal | null>(null);
-  const [isSavingsModalOpen, setIsSavingsModalOpen] = useState(false);
-  const [savingsGoalToEdit, setSavingsGoalToEdit] = useState<SavingsGoal | null>(null);
-
-  const [isSubscriptionModalOpen, setIsSubscriptionModalFromComponent] = useState(false);
-  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
-  const [isAPISetupErrorModalOpen, setIsAPISetupErrorModalOpen] = useState(false);
-
-  const { showToast } = useToast();
-
-  const setCurrentView = (view: View) => {
-      setCurrentViewState(view);
-      const newPath = VIEW_TO_PATH[view];
-      if (newPath && window.location.pathname !== newPath) {
-          window.history.pushState({}, '', newPath);
-      }
-  };
-
-  useEffect(() => {
-      const handlePopState = () => {
-          const path = window.location.pathname;
-          const mappedView = PATH_TO_VIEW[path];
-          if (mappedView) {
-              setCurrentViewState(mappedView);
-          } else if (path === '/' || path === '') {
-              setCurrentViewState('dashboard');
-          }
-      };
-      window.addEventListener('popstate', handlePopState);
-      return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  useEffect(() => {
-    if (onViewChange) {
-      onViewChange(currentView);
-    }
-  }, [currentView, onViewChange]);
-
-  const expenseQueryConstraints = useMemo(() => [orderBy('purchaseDate', 'desc')], []);
-  const goalQueryConstraints = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    return [where('endDate', '>=', today), orderBy('endDate', 'asc')];
-  }, []);
-  const reminderQueryConstraints = useMemo(() => [orderBy('date', 'asc')], []);
-  const savingsQueryConstraints = useMemo(() => [orderBy('targetAmount', 'desc')], []);
-
-  // --- COLLECTIONS QUE MUDAM DE ACORDO COM A CARTEIRA ATIVA ---
-  const { data: expenses, loading: loadingExpenses, error: errorExpenses, addDocument: addExpenseFirestore, updateDocument: updateExpenseFirestore, deleteDocument: deleteExpenseFirestore } = useFirestoreCollection<Expense>('expenses', currentUser.uid, expenseQueryConstraints, expensePath || undefined);
-  const { data: goals, loading: loadingGoals, error: errorGoals, addDocument: addGoalFirestore, updateDocument: updateGoalFirestore, deleteDocument: deleteGoalFirestore } = useFirestoreCollection<Goal>('goals', currentUser.uid, goalQueryConstraints, goalsPath || undefined);
-  const { data: savingsGoals, loading: loadingSavings, addDocument: addSavingsFirestore, updateDocument: updateSavingsFirestore, deleteDocument: deleteSavingsFirestore } = useFirestoreCollection<SavingsGoal>('savings_goals', currentUser.uid, savingsQueryConstraints, savingsPath || undefined);
-  
-  // Reminders são sempre Pessoais
-  const { data: reminders, loading: loadingReminders, error: errorReminders, addDocument: addReminderFirestore, deleteDocument: deleteReminderFirestore } = useFirestoreCollection<Reminder>('reminders', currentUser.uid, reminderQueryConstraints);
-
-  const userDocPath = `users/${currentUser.uid}`;
-  const { data: userDataFromFirestore, loading: loadingUserDoc } = useFirestoreDocument<User>(userDocPath);
-
-  useEffect(() => {
-    if (!reminders || reminders.length === 0) return;
-    const checkReminders = () => {
-        if (Notification.permission !== 'granted') return;
-        const now = new Date();
-        const currentMinute = now.getHours() * 60 + now.getMinutes();
-        const todayStr = now.toISOString().split('T')[0];
-        reminders.forEach(reminder => {
-            if (reminder.date === todayStr) {
-                const [rHour, rMinute] = reminder.time.split(':').map(Number);
-                if ((rHour * 60 + rMinute) === currentMinute) {
-                    const notifKey = `notified_${reminder.id}_${todayStr}_${reminder.time}`;
-                    if (!localStorage.getItem(notifKey)) {
-                        new Notification(`Lembrete: ${reminder.title}`, { body: 'Está na hora! Toque para ver.', icon: '/favicon.ico' });
-                        localStorage.setItem(notifKey, 'true');
-                        setTimeout(() => localStorage.removeItem(notifKey), 61000);
-                    }
-                }
-            }
-        });
-    };
-    const interval = setInterval(checkReminders, 10000); 
-    return () => clearInterval(interval);
-  }, [reminders]);
-
-  useEffect(() => {
-    const error = errorExpenses || errorGoals || errorReminders;
-    if (error) {
-        showToast(`Erro de conexão: ${error.message}`, 'error');
-    }
-  }, [errorExpenses, errorGoals, errorReminders, showToast]);
-
-  useEffect(() => {
-    const checkAndCreateUserDoc = async () => {
-      if (!loadingUserDoc && !userDataFromFirestore) {
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        const docSnap = await getDoc(userDocRef);
-        if (!docSnap.exists()) {
-            const newUserDocData: User = {
-                uid: currentUser.uid,
-                name: currentUser.name,
-                email: currentUser.email,
-                phone: currentUser.phone || '',
-                profileImage: DEFAULT_PROFILE_IMAGE,
-                reminderSettings: DEFAULT_REMINDER_SETTINGS,
-                role: 'user',
-                status: 'active',
-                createdAt: new Date().toISOString(),
-                subscriptionExpiresAt: null,
-                xp: 0,
-                currentStreak: 1,
-                lastInteractionDate: getLocalDate()
-            };
-            try { await setDoc(userDocRef, newUserDocData); } catch (error) { console.error("Falha ao criar perfil:", error); }
-        }
-      } else if (userDataFromFirestore) {
-          const today = getLocalDate();
-          const lastDate = userDataFromFirestore.lastInteractionDate;
-          if (lastDate !== today) {
-              const userRef = doc(db, 'users', currentUser.uid);
-              const now = new Date();
-              now.setDate(now.getDate() - 1);
-              const year = now.getFullYear();
-              const month = String(now.getMonth() + 1).padStart(2, '0');
-              const day = String(now.getDate()).padStart(2, '0');
-              const yesterdayStr = `${year}-${month}-${day}`;
-              if (lastDate === yesterdayStr) {
-                  await updateDoc(userRef, { currentStreak: increment(1), lastInteractionDate: today });
-              } else {
-                  await updateDoc(userRef, { currentStreak: 1, lastInteractionDate: today });
-              }
-          }
-      }
-    };
-    checkAndCreateUserDoc();
-  }, [currentUser, loadingUserDoc, userDataFromFirestore]);
-
-  const userProfile: User = useMemo(() => {
-    const baseProfile: User = { 
-        uid: currentUser.uid, 
-        name: currentUser.name || currentUser.email?.split('@')[0] || 'Usuário', 
-        email: currentUser.email || '', 
-        phone: currentUser.phone || '', 
-        profileImage: DEFAULT_PROFILE_IMAGE, 
-        reminderSettings: DEFAULT_REMINDER_SETTINGS, 
-        role: 'user', 
-        status: 'active', 
-        xp: 0, 
-        currentStreak: 0,
-        createdAt: currentUser.createdAt || new Date().toISOString(),
-        subscriptionExpiresAt: currentUser.subscriptionExpiresAt || null
-    };
-    if (loadingUserDoc || !userDataFromFirestore) return baseProfile;
-    return { ...baseProfile, ...userDataFromFirestore, profileImage: userDataFromFirestore.profileImage || DEFAULT_PROFILE_IMAGE, reminderSettings: userDataFromFirestore.reminderSettings || DEFAULT_REMINDER_SETTINGS, xp: userDataFromFirestore.xp || 0, currentStreak: userDataFromFirestore.currentStreak || 0 };
-  }, [currentUser, userDataFromFirestore, loadingUserDoc]);
-
-  const awardXp = useCallback(async (amount: number, reason: string) => {
-    if (!currentUser.uid) return;
-    try {
-        const userRef = doc(db, 'users', currentUser.uid);
-        await updateDoc(userRef, { xp: increment(amount), lastInteractionDate: getLocalDate() });
-        showToast(`+${amount} XP: ${reason}`, 'success');
-    } catch (error) { console.error("Error awarding XP:", error); }
-  }, [currentUser.uid, showToast]);
-
-  const handleAppLogout = useCallback(async () => {
-    const { success, message } = await logout();
-    showToast(message, success ? 'success' : 'error');
-  }, [showToast]);
-
-  const onSaveExpense = useCallback(async (expenseData: Omit<Expense, 'id'>, idToUpdate?: string) => {
-      const payload = {
-          ...expenseData,
-          createdByUid: currentUser.uid,
-          createdByName: currentUser.name?.split(' ')[0] || 'Membro'
-      };
-
-      if (idToUpdate) {
-        const success = await updateExpenseFirestore(idToUpdate, payload);
-        showToast(success ? 'Lançamento atualizado!' : 'Erro ao atualizar.', success ? 'success' : 'error');
-      } else {
-        const id = await addExpenseFirestore(payload);
-        if (id) { 
-            showToast('Lançamento adicionado!', 'success'); 
-            awardXp(20, 'Registro financeiro'); 
-        } 
-        else { showToast('Erro ao salvar.', 'error'); }
-      }
-      setExpenseToEdit(null); setInitialExpenseData(null); setIsExpenseModalOpen(false);
-  }, [addExpenseFirestore, updateExpenseFirestore, showToast, awardXp, currentUser]);
-
-  const deleteExpense = useCallback(async (id: string) => {
-        const success = await deleteExpenseFirestore(id);
-        showToast(success ? 'Lançamento excluído!' : 'Erro ao excluir.', success ? 'success' : 'error');
-  }, [deleteExpenseFirestore, showToast]);
-
-  const onSaveGoal = useCallback(async (goalData: Omit<Goal, 'id'>, idToUpdate?: string) => {
-      if (idToUpdate) {
-        const success = await updateGoalFirestore(idToUpdate, goalData);
-        showToast(success ? 'Orçamento atualizado!' : 'Erro ao atualizar.', success ? 'success' : 'error');
-      } else {
-        const id = await addGoalFirestore(goalData);
-        showToast(id ? 'Orçamento criado!' : 'Erro ao criar.', id ? 'success' : 'error');
-        awardXp(30, 'Orçamento definido');
-      }
-      setGoalToEdit(null); setIsGoalModalOpen(false);
-  }, [addGoalFirestore, updateGoalFirestore, showToast, awardXp]);
-
-  const deleteGoal = useCallback(async (id: string) => {
-        const success = await deleteGoalFirestore(id);
-        showToast(success ? 'Orçamento excluído!' : 'Erro ao excluir.', success ? 'success' : 'error');
-  }, [deleteGoalFirestore, showToast]);
-
-  const onSaveSavingsGoal = useCallback(async (data: Omit<SavingsGoal, 'id'>, idToUpdate?: string) => {
-      if (idToUpdate) {
-          const success = await updateSavingsFirestore(idToUpdate, data);
-          showToast(success ? 'Meta atualizada!' : 'Erro ao atualizar.', success ? 'success' : 'error');
-      } else {
-          const id = await addSavingsFirestore(data);
-          showToast(id ? 'Meta criada!' : 'Erro ao criar.', id ? 'success' : 'error');
-          awardXp(50, 'Sonho definido');
-      }
-      setSavingsGoalToEdit(null); setIsSavingsModalOpen(false);
-  }, [addSavingsFirestore, updateSavingsFirestore, showToast, awardXp]);
-
-  const deleteSavingsGoal = useCallback(async (id: string) => {
-      const success = await deleteSavingsFirestore(id);
-      showToast(success ? 'Meta excluída.' : 'Erro ao excluir.', success ? 'success' : 'error');
-  }, [deleteSavingsFirestore, showToast]);
-
-  const onAddReminder = useCallback(async (reminderData: Omit<Reminder, 'id'>) => {
-    const id = await addReminderFirestore(reminderData);
-    showToast(id ? 'Lembrete adicionado!' : 'Erro ao adicionar.', id ? 'success' : 'error');
-    if(id) awardXp(10, 'Lembrete criado');
-  }, [addReminderFirestore, showToast, awardXp]);
-
-  const onDeleteReminder = useCallback(async (id: string) => {
-    const success = await deleteReminderFirestore(id);
-    showToast(success ? 'Lembrete concluído!' : 'Erro ao excluir.', success ? 'success' : 'error');
-  }, [deleteReminderFirestore, showToast]);
-
-  const onUpdateProfileImage = useCallback(async (newImage: string): Promise<boolean> => {
-    const userDocRef = doc(db, 'users', currentUser.uid);
-    try { await setDoc(userDocRef, { profileImage: newImage }, { merge: true }); return true; } catch { return false; }
-  }, [currentUser.uid]);
-
-  const onManageSubscription = useCallback(() => setIsSubscriptionModalFromComponent(true), []);
-  const onManageReminders = useCallback(() => setIsReminderModalOpen(true), []);
-  const handleAPISetupError = useCallback(() => { setIsAPISetupErrorModalOpen(true); }, []);
-
-  const handleResetData = useCallback(async (period: 'all' | 'month' | 'year') => {
-    if (!currentUser.uid) return false;
-    const baseRef = activeWalletId ? collection(db, 'shared_wallets', activeWalletId, 'expenses') : collection(db, 'users', currentUser.uid, 'expenses');
-    try {
-      let q;
-      const now = new Date();
-      if (period === 'month') {
-          const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-          const end = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
-          q = query(baseRef, where('purchaseDate', '>=', start), where('purchaseDate', '<=', end));
-      } else if (period === 'year') {
-          const start = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0];
-          const end = new Date(now.getFullYear(), 11, 31).toISOString().split('T')[0];
-          q = query(baseRef, where('purchaseDate', '>=', start), where('purchaseDate', '<=', end));
-      } else {
-          q = query(baseRef);
-      }
-      const snapshot = await getDocs(q);
-      if (snapshot.empty) { showToast('Sem lançamentos para apagar.', 'info'); return true; }
-      const batch = writeBatch(db);
-      snapshot.docs.forEach((doc) => batch.delete(doc.ref));
-      await batch.commit();
-      showToast(`${snapshot.size} itens excluídos.`, 'success');
-      return true;
-    } catch (error) {
-      showToast('Erro ao apagar dados.', 'error');
-      return false;
-    }
-  }, [currentUser.uid, activeWalletId, showToast]);
-
-  const isTrialPeriod = useMemo(() => {
-    if (!currentUser.createdAt) return false;
-    const created = new Date(currentUser.createdAt);
-    const diff = Math.abs(new Date().getTime() - created.getTime());
-    return Math.ceil(diff / (1000 * 60 * 60 * 24)) < 30; 
-  }, [currentUser.createdAt]);
+  const navItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon className="text-xl" /> },
+    { id: 'entries', label: 'Lançamentos', icon: <ListIcon className="text-xl" /> },
+    { id: 'goals', label: 'Planejamento', icon: <TargetIcon className="text-xl" /> },
+    { id: 'reports', label: 'Relatórios', icon: <ChartIcon className="text-xl" /> },
+    { id: 'profile', label: 'Perfil', icon: <ProfileIcon className="text-xl" /> },
+  ];
 
   const isAdmin = userProfile.role && ['admin', 'super_admin', 'operational_admin', 'support_admin'].includes(userProfile.role);
 
-  const renderView = useCallback(() => (
-    <Suspense fallback={<div className="flex flex-col items-center justify-center min-h-[calc(100vh-180px)]"><div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div><p>Carregando...</p></div>}>
-      {(() => {
-        switch (currentView) {
-          case 'dashboard': return <Dashboard expenses={expenses} isLoading={loadingExpenses} userProfile={userProfile} onManageReminders={onManageReminders} reminders={reminders} onViewAll={() => setCurrentView('entries')} goals={goals} />;
-          case 'entries': return <Entries expenses={expenses} onDeleteExpense={deleteExpense} onEditExpense={(e) => { setExpenseToEdit(e); setIsExpenseModalOpen(true); }} isLoading={loadingExpenses} onAddExpense={async (e, t) => { if(!t) { await onSaveExpense(e); } else { setInitialExpenseData(e); setIsExpenseModalOpen(true); } }} onAPISetupError={handleAPISetupError} />;
-          case 'reports': return <Reports expenses={expenses} isLoadingExpenses={loadingExpenses} />;
-          case 'goals': return <Goals goals={goals} savingsGoals={savingsGoals} expenses={expenses} onOpenGoalModal={() => setIsGoalModalOpen(true)} onOpenSavingsModal={() => setIsSavingsModalOpen(true)} onEditGoal={(g) => { setGoalToEdit(g); setIsGoalModalOpen(true); }} onEditSavingsGoal={(s) => { setSavingsGoalToEdit(s); setIsSavingsModalOpen(true); }} onDeleteGoal={deleteGoal} onDeleteSavingsGoal={deleteSavingsGoal} isLoading={loadingGoals} />;
-          case 'profile': return <Profile userProfile={userProfile} handleLogout={handleAppLogout} onManageSubscription={onManageSubscription} onUpdateProfileImage={onUpdateProfileImage} isLoading={loadingUserDoc} onOpenPrivacyPolicy={onOpenGlobalPrivacyPolicy} onOpenTermsOfService={onOpenGlobalTermsOfService} onOpenSupport={onOpenSupport} onOpenAdminPanel={() => setCurrentView('admin')} onResetData={handleResetData} />;
-          case 'admin': return isAdmin ? <AdminPanel currentUser={userProfile} /> : <div className="p-8 text-center text-red-600">Acesso negado.</div>;
-          default: return <Dashboard expenses={expenses} isLoading={loadingExpenses} userProfile={userProfile} onManageReminders={onManageReminders} reminders={reminders} onViewAll={() => setCurrentView('entries')} goals={goals} />;
-        }
-      })()}
-    </Suspense>
-  ), [currentView, expenses, goals, savingsGoals, reminders, handleAppLogout, deleteExpense, deleteGoal, deleteSavingsGoal, onManageSubscription, onManageReminders, onUpdateProfileImage, userProfile, loadingExpenses, loadingGoals, loadingUserDoc, onOpenGlobalPrivacyPolicy, onOpenGlobalTermsOfService, onOpenSupport, handleAPISetupError, onSaveExpense, isAdmin, handleResetData]);
-
-  const openNewExpenseModal = () => {
-      setInitialExpenseData(null); 
-      setExpenseToEdit(null); 
-      setIsExpenseModalOpen(true);
-  };
-
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-        <div className="hidden md:flex flex-col h-full z-20 shadow-xl relative">
-            <Sidebar 
-                currentView={currentView} 
-                onSetView={setCurrentView} 
-                onOpenNewExpense={openNewExpenseModal}
-                onLogout={handleAppLogout}
-                userProfile={userProfile}
-                sharedWallets={sharedWallets}
-                activeWalletId={activeWalletId}
-                onSetActiveWallet={setActiveWalletId}
-                onOpenWalletManager={() => setIsWalletManagerOpen(true)}
-            />
+    <aside className="w-64 h-full bg-white border-r border-gray-200 flex flex-col flex-shrink-0 transition-all duration-300">
+      <div className="h-20 flex items-center px-6 border-b border-gray-100">
+        <div className="flex items-center gap-3 cursor-pointer" onClick={() => onSetView('dashboard')}>
+            <div className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white w-9 h-9 rounded-lg shadow-md shadow-blue-600/20 flex items-center justify-center shrink-0">
+              <WalletIcon className="text-lg" />
+            </div>
+            <span className="font-bold text-xl text-gray-800 tracking-tight">MeuGasto</span>
         </div>
+      </div>
 
-        <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-            <Header 
-                userProfile={userProfile} 
-                currentView={currentView} 
-                onSetView={setCurrentView} 
-                onLogout={handleAppLogout}
-                activeWalletName={activeWalletName}
-                onOpenWalletManager={() => setIsWalletManagerOpen(true)}
-            />
+      <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1 custom-scrollbar">
+        
+        {/* Wallet Switcher Section */}
+        <div className="mb-8 space-y-2">
+            <div className="flex justify-between items-center px-4 mb-2">
+                <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">Espaços</p>
+                <button onClick={onOpenWalletManager} className="text-blue-600 hover:text-blue-800 p-0.5"><PlusIcon className="text-sm" /></button>
+            </div>
             
-            {expirationWarning?.show && (
-                <div className="absolute z-30 top-20 left-4 right-4 md:left-8 md:right-8 flex justify-center animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-none">
-                    <div className={`pointer-events-auto backdrop-blur-md border rounded-2xl shadow-xl p-3 w-full max-w-2xl flex items-center justify-between gap-3 ring-1 ring-black/5 ${isTrialPeriod ? 'bg-indigo-50/95 border-indigo-200 shadow-indigo-500/10' : 'bg-white/95 border-orange-100 shadow-orange-500/10'}`}>
-                        <div className="flex items-center gap-3 overflow-hidden">
-                            <div className={`p-2.5 rounded-xl shrink-0 flex items-center justify-center ${isTrialPeriod ? 'bg-indigo-100' : 'bg-orange-50'}`}><span className={`material-symbols-outlined text-xl ${isTrialPeriod ? 'text-indigo-600' : 'text-orange-500'}`}>{isTrialPeriod ? 'hourglass_top' : 'av_timer'}</span></div>
-                            <div className="flex flex-col min-w-0"><span className={`font-bold text-sm truncate ${isTrialPeriod ? 'text-indigo-900' : 'text-gray-800'}`}>{isTrialPeriod ? 'Teste Grátis Acabando' : 'Renovação Necessária'}</span><span className="text-gray-500 text-xs truncate">{isTrialPeriod ? 'Restam' : 'Vence em'} <span className={`font-bold ${isTrialPeriod ? 'text-indigo-600' : 'text-orange-600'}`}>{expirationWarning.days} dia(s)</span>.</span></div>
-                        </div>
-                        <button onClick={() => setIsSubscriptionModalFromComponent(true)} className={`text-xs font-bold px-5 py-2.5 rounded-xl shadow-md hover:shadow-lg transform active:scale-95 transition-all whitespace-nowrap text-white ${isTrialPeriod ? 'bg-gradient-to-r from-indigo-600 to-purple-600' : 'bg-gradient-to-r from-orange-500 to-amber-500'}`}>{isTrialPeriod ? 'Garantir Acesso' : 'Renovar Agora'}</button>
-                    </div>
-                </div>
-            )}
+            <button 
+                onClick={() => onSetActiveWallet(null)}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${activeWalletId === null ? 'bg-blue-600 text-white shadow-md shadow-blue-100' : 'text-gray-600 hover:bg-gray-50'}`}
+            >
+                <ProfileIcon className="text-lg" />
+                Minha Conta
+            </button>
 
-            <main className={`flex-1 overflow-y-auto pb-24 md:pb-8 w-full px-4 sm:px-6 lg:px-8 custom-scrollbar ${expirationWarning?.show ? 'pt-24' : 'pt-4'}`}>
-                <div className="max-w-7xl mx-auto h-full">
-                    <AnimatePresence mode="wait">
-                        <motion.div
-                            key={`${currentView}-${activeWalletId}`}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.25, ease: "easeInOut" }}
-                            className="h-full w-full"
-                        >
-                            {renderView()}
-                        </motion.div>
-                    </AnimatePresence>
-                </div>
-            </main>
-
-            {currentView !== 'admin' && (
-                <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] border-t border-gray-200 z-40 safe-area-pb">
-                    <div className="grid grid-cols-5 h-16 w-full px-2">
-                        <BottomNavItem icon="space_dashboard" label="Dashboard" isActive={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} />
-                        <BottomNavItem icon="receipt_long" label="Lançamentos" isActive={currentView === 'entries'} onClick={() => setCurrentView('entries')} />
-                        <div className="relative flex justify-center items-center z-50">
-                            <button onClick={openNewExpenseModal} className="absolute -top-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg shadow-blue-600/40 flex items-center justify-center hover:bg-blue-700 transition-all transform active:scale-95 focus:outline-none border-4 border-gray-50">
-                                <PlusIcon className="text-2xl" />
-                            </button>
-                        </div>
-                        <BottomNavItem icon="track_changes" label="Planejamento" isActive={currentView === 'goals'} onClick={() => setCurrentView('goals')} />
-                        <BottomNavItem icon="bar_chart" label="Relatórios" isActive={currentView === 'reports'} onClick={() => setCurrentView('reports')} />
-                    </div>
-                </nav>
-            )}
+            {sharedWallets.map(wallet => (
+                <button 
+                    key={wallet.id}
+                    onClick={() => onSetActiveWallet(wallet.id)}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${activeWalletId === wallet.id ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : 'text-gray-600 hover:bg-gray-50'}`}
+                >
+                    <GroupIcon className="text-lg" />
+                    <span className="truncate">{wallet.name}</span>
+                </button>
+            ))}
         </div>
 
-        <ExpenseModal isOpen={isExpenseModalOpen} onClose={() => { setIsExpenseModalOpen(false); setExpenseToEdit(null); }} onSaveExpense={onSaveExpense} expenseToEdit={expenseToEdit} initialData={initialExpenseData} onAPISetupError={handleAPISetupError} />
-        <GoalModal isOpen={isGoalModalOpen} onClose={() => { setIsGoalModalOpen(false); setGoalToEdit(null); }} onSaveGoal={onSaveGoal} goalToEdit={goalToEdit} />
-        <SavingsGoalModal isOpen={isSavingsModalOpen} onClose={() => { setIsSavingsModalOpen(false); setSavingsGoalToEdit(null); }} onSave={onSaveSavingsGoal} goalToEdit={savingsGoalToEdit} />
-        <SubscriptionModal isOpen={isSubscriptionModalOpen} onClose={() => setIsSubscriptionModalFromComponent(false)} />
-        <ReminderModal isOpen={isReminderModalOpen} onClose={() => setIsReminderModalOpen(false)} onAddReminder={onAddReminder} onDeleteReminder={onDeleteReminder} reminders={reminders} />
-        <APISetupErrorModal isOpen={isAPISetupErrorModalOpen} onClose={() => setIsAPISetupErrorModalOpen(false)} />
-        <SharedWalletManager isOpen={isWalletManagerOpen} onClose={() => setIsWalletManagerOpen(false)} currentUser={currentUser} />
-    </div>
+        <div className="h-px bg-gray-100 mb-6 mx-4"></div>
+
+        <button 
+            onClick={onOpenNewExpense}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-blue-100 flex items-center justify-center gap-2 transition-all transform active:scale-95 mb-8"
+        >
+            <PlusIcon className="text-xl" />
+            <span>Novo Lançamento</span>
+        </button>
+
+        <div className="space-y-1">
+            <p className="px-4 text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2 mt-2">Menu Principal</p>
+            {navItems.map((item) => (
+            <button
+                key={item.id}
+                onClick={() => onSetView(item.id as View)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group ${
+                currentView === item.id 
+                    ? 'bg-gray-50 text-blue-700 font-bold' 
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+            >
+                <span className={`transition-colors ${currentView === item.id ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`}>
+                    {item.icon}
+                </span>
+                {item.label}
+                {currentView === item.id && (
+                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                )}
+            </button>
+            ))}
+
+            {isAdmin && (
+                <button
+                    onClick={() => onSetView('admin')}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group ${
+                    currentView === 'admin' 
+                        ? 'bg-purple-50 text-purple-700 shadow-sm' 
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    }`}
+                >
+                    <span className={`transition-colors ${currentView === 'admin' ? 'text-purple-600' : 'text-gray-400 group-hover:text-gray-600'}`}>
+                        <AdminPanelSettingsIcon className="text-xl" />
+                    </span>
+                    Administração
+                </button>
+            )}
+        </div>
+      </nav>
+
+      <div className="p-4 border-t border-gray-100 bg-gray-50/50">
+        <div className="flex items-center gap-3 mb-4 px-2">
+            <div className="w-10 h-10 rounded-full bg-gray-200 border-2 border-white shadow-sm overflow-hidden shrink-0">
+                <img src={userProfile.profileImage} alt="Perfil" className="w-full h-full object-cover" />
+            </div>
+            <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-gray-800 truncate">{userProfile.name.split(' ')[0]}</p>
+                <p className="text-xs text-gray-500 truncate">{userProfile.email}</p>
+            </div>
+        </div>
+        <button 
+            onClick={onLogout}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
+        >
+            <LogoutIcon className="text-lg" />
+            Sair da Conta
+        </button>
+      </div>
+    </aside>
   );
 };
