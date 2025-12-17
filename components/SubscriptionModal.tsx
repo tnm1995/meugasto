@@ -58,7 +58,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, on
   const annualMonthlyEquivalent = pricing.annualPrice / 12;
 
   const handleSubscribe = () => {
-      // Usa os links salvos no banco de dados, ou fallback para string vazia (o que não deve acontecer com o padrão definido)
+      // Usa os links salvos no banco de dados, ou fallback para string vazia
       const link = selectedPlan === 'annual'
           ? (pricing.annualLink || 'https://pay.kirvano.com/d5e20900-e9da-40fa-a226-03c484c321d4')
           : (pricing.monthlyLink || 'https://pay.kirvano.com/1f5acd83-e53a-4a80-8b72-42f87659a777');
@@ -75,7 +75,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, on
             <h2 className="text-xl font-bold text-gray-900">Seja Premium</h2>
             <p className="text-xs text-gray-500">Desbloqueie todo o potencial</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 bg-white p-1.5 rounded-full shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 bg-white w-10 h-10 rounded-full shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors flex items-center justify-center shrink-0 aspect-square">
             <XMarkIcon className="text-xl" />
           </button>
         </div>

@@ -16,7 +16,6 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({ id, messag
   useEffect(() => {
     // Animação de entrada
     setIsVisible(true);
-    // Não é necessário um timer aqui, pois o contexto já gerencia o tempo
   }, []);
 
   const handleClose = () => {
@@ -55,7 +54,7 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({ id, messag
       <p className="flex-1 text-sm font-medium">{message}</p>
       <button
         onClick={handleClose}
-        className="ml-3 text-white opacity-75 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-white rounded-full"
+        className="ml-3 text-white opacity-75 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-white w-8 h-8 flex items-center justify-center rounded-full shrink-0 aspect-square"
         aria-label="Fechar notificação"
       >
         <XMarkIcon className="text-2xl" />

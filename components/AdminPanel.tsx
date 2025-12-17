@@ -610,13 +610,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                 </div>
             )}
 
-            {/* Modal de Edição de Usuário (Mantido) */}
+            {/* Modal de Edição de Usuário */}
             {editingUser && canEditUsers && (
                 <div className="fixed inset-0 bg-gray-900/40 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto animate-fade-in border border-gray-100">
                         <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
                             <h2 className="text-xl font-bold text-gray-800">Gerenciar Usuário</h2>
-                            <button onClick={() => setEditingUser(null)} className="text-gray-400 hover:text-gray-600 bg-gray-50 p-1.5 rounded-full hover:bg-gray-100 transition-colors"><XMarkIcon className="text-xl" /></button>
+                            <button onClick={() => setEditingUser(null)} className="text-gray-400 hover:text-gray-600 bg-gray-50 w-10 h-10 rounded-full hover:bg-gray-100 transition-colors flex items-center justify-center shrink-0 aspect-square"><XMarkIcon className="text-xl" /></button>
                         </div>
                         <div className="space-y-6">
                             <div className="space-y-3">
@@ -659,13 +659,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                 </div>
             )}
             
-            {/* Modal de CRIAÇÃO de Usuário (Mantido) */}
+            {/* Modal de CRIAÇÃO de Usuário */}
             {isCreateUserModalOpen && canCreateUsers && (
                 <div className="fixed inset-0 bg-gray-900/40 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto animate-fade-in">
                         <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
                             <h2 className="text-xl font-bold text-gray-800">Criar Novo Usuário</h2>
-                            <button onClick={() => setIsCreateUserModalOpen(false)} className="text-gray-400 hover:text-gray-600 bg-gray-50 p-1.5 rounded-full hover:bg-gray-100 transition-colors"><XMarkIcon className="text-xl" /></button>
+                            <button onClick={() => setIsCreateUserModalOpen(false)} className="text-gray-400 hover:text-gray-600 bg-gray-50 w-10 h-10 rounded-full hover:bg-gray-100 transition-colors flex items-center justify-center shrink-0 aspect-square"><XMarkIcon className="text-xl" /></button>
                         </div>
                         <form onSubmit={handleCreateUser} className="space-y-5">
                             <div><label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Nome Completo</label><input type="text" value={createName} onChange={e => setCreateName(e.target.value)} className={inputClasses} placeholder="Ex: João Silva" required /></div>

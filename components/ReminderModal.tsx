@@ -94,7 +94,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ isOpen, onClose, o
             </h2>
             <p className="text-xs text-gray-500">Não esqueça de pagar suas contas</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors" aria-label="Fechar">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 w-10 h-10 rounded-full hover:bg-gray-100 transition-colors flex items-center justify-center shrink-0 aspect-square" aria-label="Fechar">
             <XMarkIcon className="text-2xl" />
           </button>
         </div>

@@ -112,7 +112,7 @@ export const GoalModal: React.FC<GoalModalProps> = ({ isOpen, onClose, onSaveGoa
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
         <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-white">
           <h2 id="goal-modal-title" className="text-xl font-bold text-gray-800">{goalToEdit ? 'Editar Meta' : 'Adicionar Meta'}</h2>
-          <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-full hover:bg-gray-100 transition-colors" aria-label="Fechar">
+          <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 w-10 h-10 rounded-full hover:bg-gray-100 transition-colors flex items-center justify-center shrink-0 aspect-square" aria-label="Fechar">
             <XMarkIcon className="text-2xl" />
           </button>
         </div>

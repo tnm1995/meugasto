@@ -349,7 +349,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
             <h2 id="expense-modal-title" className="text-xl font-bold text-gray-800">
               {expenseToEdit ? 'Editar Lançamento' : (initialData ? 'Revisar Lançamento' : 'Novo Lançamento')}
             </h2>
-            <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-full hover:bg-gray-100 transition-colors" aria-label="Fechar">
+            <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 w-10 h-10 rounded-full hover:bg-gray-100 transition-colors flex items-center justify-center shrink-0 aspect-square" aria-label="Fechar">
                 <XMarkIcon className="text-2xl" />
             </button>
         </div>
@@ -400,7 +400,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
                       </div>
                       <button 
                         onClick={handleClearPreview}
-                        className="absolute top-2 right-2 bg-white/90 text-red-500 p-1.5 rounded-full shadow-md hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
+                        className="absolute top-2 right-2 bg-white/90 text-red-50 p-1.5 rounded-full shadow-md hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
                         title="Remover imagem"
                       >
                           <TrashIcon className="text-lg" />
@@ -446,8 +446,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
                   <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
                     <div className="flex justify-between items-center mb-3">
                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Itens ({items.length})</label>
-                       <button type="button" onClick={handleAddItem} className="text-blue-600 text-xs font-bold hover:text-blue-700 hover:bg-blue-50 px-2 py-1 rounded-lg transition-colors flex items-center gap-1">
-                          <PlusIcon className="text-sm"/> Adicionar
+                       <button type="button" onClick={handleAddItem} className="text-blue-600 text-xs font-bold hover:text-blue-700 hover:bg-blue-50 px-2 py-1 rounded-lg transition-colors flex items-center justify-center aspect-square min-w-[24px]">
+                          <PlusIcon className="text-sm"/>
                        </button>
                     </div>
                     
@@ -476,7 +476,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
                             <button
                               type="button"
                               onClick={() => handleRemoveItem(index)}
-                              className="text-gray-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                              className="text-gray-400 hover:text-red-500 w-9 h-9 flex items-center justify-center hover:bg-red-50 rounded-lg transition-colors shrink-0 aspect-square"
                               aria-label="Remover item"
                             >
                               <TrashIcon className="text-lg" />
