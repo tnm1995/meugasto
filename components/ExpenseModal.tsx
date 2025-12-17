@@ -2,7 +2,8 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import type { Expense, Omit } from '../types';
-import { extractExpenseFromImage } from '../services/geminiService';
+// Importação direta do serviço de IA do Google (Gemini)
+import { extractExpenseFromImage } from '../services/geminiService'; 
 import { CameraIcon, XMarkIcon, TrashIcon, PlusIcon, CalculateIcon, TrendingUpIcon } from './Icons';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from '../types';
 import { useToast } from '../contexts/ToastContext';
@@ -46,7 +47,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [subcategories, setSubcategories] = useState<string[]>([]);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null); // Estado para o preview da imagem
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { showToast } = useToast();
@@ -80,10 +81,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
         isRecurring: expenseToEdit.isRecurring,
         paymentMethod: expenseToEdit.paymentMethod,
         recurrenceFrequency: expenseToEdit.recurrenceFrequency,
-        type: expenseToEdit.type || 'expense' // Fallback para compatibilidade
+        type: expenseToEdit.type || 'expense'
       });
       setItems(expenseToEdit.items || []);
-      setPreviewUrl(null); // Edição manual geralmente não tem a imagem original persistida nesta versão
+      setPreviewUrl(null);
     } else if (initialData) {
       setFormData({
         localName: initialData.localName,
@@ -102,7 +103,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
     }
   }, [expenseToEdit, initialData, isOpen, resetForm]);
 
-  // Bloqueia o scroll do corpo da página quando o modal está aberto
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -133,7 +133,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
     }
   }, [formData.category, formData.type, activeCategories]);
 
-  // Se mudar o tipo (Receita/Despesa), reseta a categoria
   const handleTypeChange = (newType: 'expense' | 'income') => {
       setFormData(prev => ({ 
           ...prev, 
@@ -146,7 +145,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Cria URL temporária para preview
       const objectUrl = URL.createObjectURL(file);
       setPreviewUrl(objectUrl);
 
@@ -154,7 +152,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
       setError(null);
       try {
         const base64Image = await fileToBase64(file);
-        // Assumimos que o Gemini lê notas fiscais que geralmente são despesas
+        
+        // Chamada ao Gemini Service
         const extractedData = await extractExpenseFromImage(base64Image);
         
         let toastMessages = [];
@@ -163,7 +162,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
         if (typeof extractedData.total === 'number' && !isNaN(extractedData.total) && extractedData.total > 0) {
             finalTotal = extractedData.total;
         } else {
-            toastMessages.push('Total não reconhecido. Ajuste manualmente.');
+            toastMessages.push('Total não encontrado. Verifique a imagem.');
         }
 
         const finalLocalName = extractedData.localName?.trim() !== '' 
@@ -203,13 +202,13 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
             subcategory: finalSubcategory,
             isRecurring: false,
             paymentMethod: finalPaymentMethod,
-            type: 'expense' // Scanner é primariamente para despesas
+            type: 'expense'
         });
         setItems(Array.isArray(extractedData.items) ? extractedData.items : []);
 
-        let successMessage = 'Recibo lido com sucesso!';
+        let successMessage = 'Texto da nota lido com sucesso!';
         if (toastMessages.length > 0) {
-            successMessage += ' Verifique os detalhes.';
+            successMessage += ' Revise os valores.';
             showToast(successMessage, 'info');
         } else {
             showToast(successMessage, 'success');
@@ -217,14 +216,18 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
         
       } catch (e) {
         const err = e as Error;
+        
         if (err.message === 'API_NOT_ENABLED') {
             onAPISetupError();
+            setIsLoading(false);
+            setPreviewUrl(null);
             return;
         }
+
         const errorMessage = err.message;
         setError(errorMessage);
         showToast(errorMessage, 'error');
-        setPreviewUrl(null); // Limpa preview se falhar
+        setPreviewUrl(null);
       } finally {
         setIsLoading(false);
         if (fileInputRef.current) {
@@ -242,7 +245,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
       setPreviewUrl(null);
   };
 
-  // --- Manipulação de Itens ---
   const handleItemChange = (index: number, field: 'name' | 'price', value: string) => {
     const newItems = [...items];
     if (field === 'name') {
@@ -350,7 +352,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
         <div className="p-6 overflow-y-auto">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-64" role="status" aria-live="polite">
-                {/* Mostra preview enevoado enquanto carrega, se houver */}
                 {previewUrl && (
                     <div className="absolute inset-0 z-0 opacity-20 bg-cover bg-center filter blur-sm" style={{ backgroundImage: `url(${previewUrl})` }}></div>
                 )}
@@ -359,12 +360,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
                 <div className="absolute top-0 left-0 w-full h-full border-4 border-transparent border-t-blue-600 rounded-full animate-spin"></div>
                 <CameraIcon className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-blue-600 text-2xl" />
               </div>
-              <p className="mt-4 text-gray-800 font-bold text-lg z-10">Lendo notinha...</p>
-              <p className="text-sm text-gray-500 z-10">A IA está processando os dados.</p>
+              <p className="mt-4 text-gray-800 font-bold text-lg z-10">Lendo notinha com IA...</p>
+              <p className="text-sm text-gray-500 z-10">Identificando itens e valores.</p>
             </div>
           ) : (
             <>
-              {/* TOGGLE TIPO DE LANÇAMENTO */}
               <div className="flex bg-gray-100 p-1 rounded-2xl mb-6 shadow-inner">
                   <button 
                     type="button"
@@ -384,7 +384,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
                   </button>
               </div>
 
-              {/* ÁREA DE PREVIEW DA IMAGEM */}
               {previewUrl && (
                   <div className="mb-6 relative group animate-fade-in">
                       <div className="w-full h-48 bg-gray-100 rounded-2xl overflow-hidden border border-gray-200 relative">
@@ -405,7 +404,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
                   </div>
               )}
 
-              {/* BOTÃO DE SCAN (Só aparece se não for edição e não tiver preview carregado) */}
               {!expenseToEdit && !initialData && !previewUrl && formData.type === 'expense' && (
                 <div className="mb-6">
                     <button onClick={handleScanClick} className="w-full flex items-center justify-center gap-3 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 text-blue-700 font-bold rounded-2xl hover:from-blue-100 hover:to-indigo-100 transition-all shadow-sm hover:shadow-md group active:scale-[0.98]" aria-label="Escanear recibo com a câmera">
@@ -434,7 +432,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
                     </div>
                 </div>
 
-                {/* Seção de Itens da Nota */}
                 {(formData.type === 'expense' || items.length > 0) && (
                   <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
                     <div className="flex justify-between items-center mb-3">
