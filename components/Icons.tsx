@@ -94,8 +94,3 @@ export const BoltIcon: React.FC<IconProps> = ({ className }) => <MaterialIcon ic
 export const ChatBubbleIcon: React.FC<IconProps> = ({ className }) => <MaterialIcon iconName="chat_bubble" className={className} />;
 export const SendIcon: React.FC<IconProps> = ({ className }) => <MaterialIcon iconName="send" className={className} />;
 export const PaperClipIcon: React.FC<IconProps> = ({ className }) => <MaterialIcon iconName="attach_file" className={className} />;
-
-/**
- * Added missing ExpandMoreIcon
- */
-export const ExpandMoreIcon: React.FC<IconProps> = ({ className }) => <MaterialIcon iconName="expand_more" className={className} />;

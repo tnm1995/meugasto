@@ -3,11 +3,14 @@ import { GoogleGenAI, Type } from "@google/genai";
 import type { Expense, BankTransaction, Omit } from '../types';
 import { CATEGORIES } from '../types';
 
-/**
- * Initialization following guidelines:
- * Always use const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
- */
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Initialize the Gemini API client directly with the environment variable
+// adhering to the requirement: const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Fallback to 'dummy-key' to prevent app crash on startup if key is missing.
+// The API call will catch the invalid key error gracefully.
+// NOTE: process.env.API_KEY is replaced by Vite at build time via define in vite.config.ts.
+const envApiKey = process.env.API_KEY;
+const apiKey = (envApiKey && envApiKey.trim() !== '') ? envApiKey : 'dummy-key';
+const ai = new GoogleGenAI({ apiKey: apiKey });
 
 // Helper para limpar blocos de código Markdown (```json ... ```) da resposta
 const cleanJsonString = (str: string) => {
@@ -66,11 +69,8 @@ const bankTransactionResponseSchema = {
 
 export const extractExpenseFromImage = async (base64Image: string): Promise<Omit<Expense, 'id'>> => {
   try {
-    /**
-     * Using recommended model 'gemini-3-flash-preview' for basic multimodal/text tasks.
-     */
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.5-flash',
       contents: { parts: [
         { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
         { text: `Você é um especialista em OCR e Contabilidade Brasileira.
@@ -188,11 +188,8 @@ export const extractExpenseFromImage = async (base64Image: string): Promise<Omit
 
 export const extractTransactionsFromPdfText = async (pdfText: string): Promise<BankTransaction[]> => {
   try {
-    /**
-     * Using recommended model 'gemini-3-flash-preview' for basic text extraction tasks.
-     */
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.5-flash',
       contents: { parts: [{ text: `Analise o texto deste extrato bancário e extraia as transações financeiras em JSON. Ignore saldos e cabeçalhos. Texto: ${pdfText}` }] },
       config: {
         responseMimeType: 'application/json',

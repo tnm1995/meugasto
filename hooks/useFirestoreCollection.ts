@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '../services/firebaseService';
 import {
@@ -11,8 +12,7 @@ import {
   DocumentData,
   doc,
   QueryConstraint,
-  FirestoreError,
-  CollectionReference
+  FirestoreError
 } from 'firebase/firestore';
 import type { DocumentWithId } from '../types';
 
@@ -25,31 +25,21 @@ interface UseFirestoreCollectionResult<T> {
   deleteDocument: (id: string) => Promise<boolean>;
 }
 
-/**
- * @param collectionName Nome da coleção
- * @param userId ID do usuário (se for null, assume que o overridePath será usado)
- * @param queryConstraints Filtros
- * @param overridePath Caminho completo caso não siga o padrão /users/uid/col
- */
 export const useFirestoreCollection = <T extends DocumentData>(
   collectionName: string,
-  userId: string | null,
-  queryConstraints: QueryConstraint[] = [],
-  overridePath?: string
+  userId: string,
+  queryConstraints: QueryConstraint[] = []
 ): UseFirestoreCollectionResult<T> => {
   const [data, setData] = useState<DocumentWithId<T>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<FirestoreError | null>(null);
 
   const getCollectionRef = useCallback(() => {
-    if (overridePath) {
-        return collection(db, overridePath) as CollectionReference<T>;
-    }
     if (!userId || !collectionName) {
       return null;
     }
-    return collection(db, 'users', userId, collectionName) as CollectionReference<T>;
-  }, [userId, collectionName, overridePath]);
+    return collection(db, 'users', userId, collectionName);
+  }, [userId, collectionName]);
 
   useEffect(() => {
     const colRef = getCollectionRef();
@@ -77,13 +67,13 @@ export const useFirestoreCollection = <T extends DocumentData>(
     });
 
     return () => unsubscribe();
-  }, [getCollectionRef, collectionName, userId, queryConstraints, overridePath]);
+  }, [getCollectionRef, collectionName, userId, queryConstraints]);
 
   const addDocument = useCallback(async (docData: Omit<T, 'id'>): Promise<string | null> => {
     const colRef = getCollectionRef();
     if (!colRef) return null;
     try {
-      const docRef = await addDoc(colRef, docData as T);
+      const docRef = await addDoc(colRef, docData);
       return docRef.id;
     } catch (e) {
       console.error(`Error adding to ${collectionName}:`, e);
@@ -96,6 +86,7 @@ export const useFirestoreCollection = <T extends DocumentData>(
     if (!colRef) return false;
     try {
       const docRef = doc(colRef, id);
+      // Cast docData to any to bypass strict Typescript generic mismatch in updateDoc
       await updateDoc(docRef, docData as any);
       return true;
     } catch (e) {

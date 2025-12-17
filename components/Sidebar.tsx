@@ -9,10 +9,9 @@ import {
   PlusIcon,
   WalletIcon,
   LogoutIcon,
-  AdminPanelSettingsIcon,
-  GroupIcon
+  AdminPanelSettingsIcon
 } from './Icons';
-import type { View, User, SharedWallet } from '../types';
+import type { View, User } from '../types';
 
 interface SidebarProps {
   currentView: View;
@@ -20,10 +19,6 @@ interface SidebarProps {
   onOpenNewExpense: () => void;
   onLogout: () => void;
   userProfile: User;
-  sharedWallets: SharedWallet[];
-  activeWalletId: string | null;
-  onSetActiveWallet: (id: string | null) => void;
-  onOpenWalletManager: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
@@ -31,11 +26,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSetView, 
   onOpenNewExpense, 
   onLogout,
-  userProfile,
-  sharedWallets,
-  activeWalletId,
-  onSetActiveWallet,
-  onOpenWalletManager
+  userProfile
 }) => {
   
   const navItems = [
@@ -50,6 +41,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside className="w-64 h-full bg-white border-r border-gray-200 flex flex-col flex-shrink-0 transition-all duration-300">
+      {/* Logo Area */}
       <div className="h-20 flex items-center px-6 border-b border-gray-100">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => onSetView('dashboard')}>
             <div className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white w-9 h-9 rounded-lg shadow-md shadow-blue-600/20 flex items-center justify-center shrink-0">
@@ -59,55 +51,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
+      {/* Main Navigation */}
       <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1 custom-scrollbar">
         
-        {/* Wallet Switcher Section */}
-        <div className="mb-8 space-y-2">
-            <div className="flex justify-between items-center px-4 mb-2">
-                <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">Espaços</p>
-                <button onClick={onOpenWalletManager} className="text-blue-600 hover:text-blue-800 p-0.5"><PlusIcon className="text-sm" /></button>
-            </div>
-            
-            <button 
-                onClick={() => onSetActiveWallet(null)}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${activeWalletId === null ? 'bg-blue-600 text-white shadow-md shadow-blue-100' : 'text-gray-600 hover:bg-gray-50'}`}
-            >
-                <ProfileIcon className="text-lg" />
-                Minha Conta
-            </button>
-
-            {sharedWallets.map(wallet => (
-                <button 
-                    key={wallet.id}
-                    onClick={() => onSetActiveWallet(wallet.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${activeWalletId === wallet.id ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : 'text-gray-600 hover:bg-gray-50'}`}
-                >
-                    <GroupIcon className="text-lg" />
-                    <span className="truncate">{wallet.name}</span>
-                </button>
-            ))}
-        </div>
-
-        <div className="h-px bg-gray-100 mb-6 mx-4"></div>
-
+        {/* CTA Button */}
         <button 
             onClick={onOpenNewExpense}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-blue-100 flex items-center justify-center gap-2 transition-all transform active:scale-95 mb-8"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-2 transition-all transform active:scale-95 mb-8"
         >
             <PlusIcon className="text-xl" />
             <span>Novo Lançamento</span>
         </button>
 
         <div className="space-y-1">
-            <p className="px-4 text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2 mt-2">Menu Principal</p>
+            <p className="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-2">Menu</p>
             {navItems.map((item) => (
             <button
                 key={item.id}
                 onClick={() => onSetView(item.id as View)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group ${
                 currentView === item.id 
-                    ? 'bg-gray-50 text-blue-700 font-bold' 
-                    : 'text-gray-600 hover:bg-gray-50'
+                    ? 'bg-blue-50 text-blue-700 shadow-sm' 
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
             >
                 <span className={`transition-colors ${currentView === item.id ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`}>
@@ -138,6 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </nav>
 
+      {/* Footer / User Area */}
       <div className="p-4 border-t border-gray-100 bg-gray-50/50">
         <div className="flex items-center gap-3 mb-4 px-2">
             <div className="w-10 h-10 rounded-full bg-gray-200 border-2 border-white shadow-sm overflow-hidden shrink-0">
