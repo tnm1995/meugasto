@@ -54,9 +54,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
     const [logs, setLogs] = useState<AdminLog[]>([]);
     const [loadingLogs, setLoadingLogs] = useState(false);
 
-    // Estados locais para edição de preços
+    // Estados locais para edição de preços e links
     const [editMonthlyPrice, setEditMonthlyPrice] = useState('');
     const [editAnnualPrice, setEditAnnualPrice] = useState('');
+    const [editMonthlyLink, setEditMonthlyLink] = useState('');
+    const [editAnnualLink, setEditAnnualLink] = useState('');
     const [isSavingPricing, setIsSavingPricing] = useState(false);
 
     // Modal States (Edição)
@@ -96,6 +98,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
         if (!loadingPricing && pricing) {
             setEditMonthlyPrice(pricing.monthlyPrice.toString());
             setEditAnnualPrice(pricing.annualPrice.toString());
+            setEditMonthlyLink(pricing.monthlyLink || '');
+            setEditAnnualLink(pricing.annualLink || '');
         }
     }, [loadingPricing, pricing]);
 
@@ -379,15 +383,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
             const pricingRef = doc(db, 'settings', 'pricing');
             await setDoc(pricingRef, {
                 monthlyPrice: mPrice,
-                annualPrice: aPrice
+                annualPrice: aPrice,
+                monthlyLink: editMonthlyLink,
+                annualLink: editAnnualLink
             }, { merge: true });
             
-            await logAction('Alteração de Preços', `Mensal: ${mPrice}, Anual: ${aPrice}`);
+            await logAction('Alteração de Configurações', `Preços ou Links atualizados.`);
 
-            showToast('Preços atualizados com sucesso! Refletindo no app em instantes.', 'success');
+            showToast('Configurações atualizadas com sucesso! Refletindo no app em instantes.', 'success');
         } catch (error) {
             console.error(error);
-            showToast('Erro ao atualizar preços.', 'error');
+            showToast('Erro ao atualizar configurações.', 'error');
         } finally {
             setIsSavingPricing(false);
         }
@@ -699,55 +705,99 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
 
             {/* CONTEÚDO DA ABA CONFIGURAÇÕES (Preços - Apenas Super Admin) */}
             {activeTab === 'settings' && canManagePricing && (
-                <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 max-w-2xl mx-auto animate-fade-in">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-3">
-                        <div className="bg-blue-100 p-2 rounded-lg text-blue-600"><AttachMoneyIcon /></div>
-                        Configuração de Preços
-                    </h2>
-                    <p className="text-gray-600 mb-8 leading-relaxed border-b border-gray-100 pb-4">
-                        Atualize os valores dos planos de assinatura. Estas alterações refletem imediatamente na Landing Page e na tela de assinatura do app.
-                    </p>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                        <div className="space-y-2">
-                            <label className="block text-sm font-bold text-gray-700 uppercase tracking-wide">Plano Mensal (R$)</label>
-                            <div className="relative">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">R$</span>
-                                <input 
-                                    type="number" 
-                                    step="0.01"
-                                    value={editMonthlyPrice}
-                                    onChange={e => setEditMonthlyPrice(e.target.value)}
-                                    className="w-full pl-12 pr-4 py-4 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-mono text-xl shadow-sm"
-                                    placeholder="Ex: 24.90"
-                                />
+                <div className="max-w-4xl mx-auto space-y-6 animate-fade-in pb-10">
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="bg-blue-100 p-2.5 rounded-xl text-blue-600">
+                            <AdminPanelSettingsIcon className="text-2xl" />
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-800">Configurações do Sistema</h2>
+                            <p className="text-sm text-gray-500">Gerencie valores e integrações de pagamento</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Card de Precificação */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 h-full">
+                            <h3 className="font-bold text-gray-800 text-lg mb-4 flex items-center gap-2 border-b border-gray-100 pb-3">
+                                <AttachMoneyIcon className="text-green-600" /> Valores dos Planos
+                            </h3>
+                            <div className="space-y-5">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Plano Mensal (R$)</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">R$</span>
+                                        <input 
+                                            type="number" 
+                                            step="0.01"
+                                            value={editMonthlyPrice}
+                                            onChange={e => setEditMonthlyPrice(e.target.value)}
+                                            className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono font-bold text-gray-800"
+                                            placeholder="29.90"
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Plano Anual (R$)</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">R$</span>
+                                        <input 
+                                            type="number" 
+                                            step="0.01"
+                                            value={editAnnualPrice}
+                                            onChange={e => setEditAnnualPrice(e.target.value)}
+                                            className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono font-bold text-gray-800"
+                                            placeholder="199.90"
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div className="space-y-2">
-                            <label className="block text-sm font-bold text-gray-700 uppercase tracking-wide">Plano Anual (R$)</label>
-                            <div className="relative">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">R$</span>
-                                <input 
-                                    type="number" 
-                                    step="0.01"
-                                    value={editAnnualPrice}
-                                    onChange={e => setEditAnnualPrice(e.target.value)}
-                                    className="w-full pl-12 pr-4 py-4 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-mono text-xl shadow-sm"
-                                    placeholder="Ex: 149.88"
-                                />
+
+                        {/* Card de Integração (Links) */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 h-full">
+                            <h3 className="font-bold text-gray-800 text-lg mb-4 flex items-center gap-2 border-b border-gray-100 pb-3">
+                                <span className="material-symbols-outlined text-blue-600">link</span> Links de Checkout
+                            </h3>
+                            <div className="space-y-5">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Link Mensal</label>
+                                    <input 
+                                        type="url" 
+                                        value={editMonthlyLink}
+                                        onChange={e => setEditMonthlyLink(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm text-blue-600 underline"
+                                        placeholder="https://pay.kirvano.com/..."
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Link Anual</label>
+                                    <input 
+                                        type="url" 
+                                        value={editAnnualLink}
+                                        onChange={e => setEditAnnualLink(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm text-blue-600 underline"
+                                        placeholder="https://pay.kirvano.com/..."
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
                     
-                    <div className="mt-10 flex justify-end">
+                    <div className="flex justify-end pt-4">
                          <button 
                             onClick={handleSavePricing}
                             disabled={isSavingPricing || loadingPricing}
-                            className="bg-blue-600 text-white font-bold py-4 px-8 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center gap-2 disabled:bg-blue-300 transform active:scale-95"
+                            className="bg-green-600 text-white font-bold py-4 px-10 rounded-xl hover:bg-green-700 transition-all shadow-lg shadow-green-200 flex items-center gap-2 disabled:bg-gray-300 disabled:shadow-none transform active:scale-95"
                         >
                             {isSavingPricing ? (
                                 <span className="flex items-center"><span className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></span>Salvando...</span>
-                            ) : 'Salvar Novos Preços'}
+                            ) : (
+                                <>
+                                    <CheckCircleIcon className="text-xl" />
+                                    Salvar Alterações
+                                </>
+                            )}
                         </button>
                     </div>
                 </div>

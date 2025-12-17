@@ -94,6 +94,8 @@ export interface SavingsGoal {
 export interface PricingSettings {
   monthlyPrice: number;
   annualPrice: number;
+  monthlyLink?: string;
+  annualLink?: string;
 }
 
 export interface AdminLog {
@@ -221,7 +223,9 @@ export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
 
 export const DEFAULT_PRICING: PricingSettings = {
   monthlyPrice: 29.90,
-  annualPrice: 199.90
+  annualPrice: 199.90,
+  monthlyLink: 'https://pay.kirvano.com/1f5acd83-e53a-4a80-8b72-42f87659a777',
+  annualLink: 'https://pay.kirvano.com/d5e20900-e9da-40fa-a226-03c484c321d4'
 };
 
 export const ROLE_LABELS: Record<UserRole, string> = {

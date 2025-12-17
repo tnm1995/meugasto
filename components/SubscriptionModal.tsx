@@ -58,9 +58,10 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, on
   const annualMonthlyEquivalent = pricing.annualPrice / 12;
 
   const handleSubscribe = () => {
+      // Usa os links salvos no banco de dados, ou fallback para string vazia (o que não deve acontecer com o padrão definido)
       const link = selectedPlan === 'annual'
-          ? 'https://pay.kirvano.com/d5e20900-e9da-40fa-a226-03c484c321d4'
-          : 'https://pay.kirvano.com/1f5acd83-e53a-4a80-8b72-42f87659a777';
+          ? (pricing.annualLink || 'https://pay.kirvano.com/d5e20900-e9da-40fa-a226-03c484c321d4')
+          : (pricing.monthlyLink || 'https://pay.kirvano.com/1f5acd83-e53a-4a80-8b72-42f87659a777');
       
       window.open(link, '_blank');
       onClose();
