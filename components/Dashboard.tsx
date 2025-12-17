@@ -182,11 +182,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ expenses, isLoading, userP
       reminderStatusColor = 'text-orange-600 font-medium';
   }
 
-  // Últimas transações - Agora mostrando até 20 itens para preencher o card
+  // Últimas transações - Reduzido para 6 itens para uma visão mais compacta no dashboard
   const recentTransactions = useMemo(() => {
       return [...expenses]
         .sort((a, b) => new Date(b.purchaseDate).getTime() - new Date(a.purchaseDate).getTime())
-        .slice(0, 20); // Aumentado de 5 para 20
+        .slice(0, 6);
   }, [expenses]);
 
   return (
@@ -419,7 +419,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ expenses, isLoading, userP
                 </div>
             </div>
 
-            {/* Column 2: Recent Transactions - UPDATED TO FILL SPACE */}
+            {/* Column 2: Recent Transactions - UPDATED TO FILL SPACE COMPACTLY */}
             <div className="lg:col-span-1">
                 <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 h-full flex flex-col">
                     <div className="flex items-center justify-between mb-4 flex-shrink-0">
@@ -460,13 +460,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ expenses, isLoading, userP
                         </div>
                     )}
                     
-                    {expenses.length > 20 && (
-                        <div className="mt-6 pt-4 border-t border-gray-50 flex-shrink-0">
+                    {expenses.length > 6 && (
+                        <div className="mt-auto pt-6 border-t border-gray-50 flex-shrink-0">
                              <button 
                                 onClick={onViewAll} 
-                                className="w-full text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center justify-center gap-1 uppercase tracking-wide"
+                                className="w-full py-3 bg-gray-50 hover:bg-blue-50 text-xs font-extrabold text-blue-600 hover:text-blue-700 flex items-center justify-center gap-2 uppercase tracking-widest rounded-xl transition-all border border-transparent hover:border-blue-100 group"
                              >
-                                Ver todos <ArrowForwardIcon className="text-sm"/>
+                                Ver todos os registros 
+                                <ArrowForwardIcon className="text-sm transition-transform group-hover:translate-x-1"/>
                              </button>
                         </div>
                     )}
