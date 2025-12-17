@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { 
   DashboardIcon, 
@@ -11,30 +10,30 @@ import {
   LogoutIcon,
   AdminPanelSettingsIcon
 } from './Icons';
-import type { View, User } from '../types';
+import type { User } from '../types';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface SidebarProps {
-  currentView: View;
-  onSetView: (view: View) => void;
   onOpenNewExpense: () => void;
   onLogout: () => void;
   userProfile: User;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
-  currentView, 
-  onSetView, 
   onOpenNewExpense, 
   onLogout,
   userProfile
 }) => {
-  
+  const navigate = useNavigate();
+  const location = useLocation();
+  const currentPath = location.pathname;
+
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon className="text-xl" /> },
-    { id: 'entries', label: 'Lançamentos', icon: <ListIcon className="text-xl" /> },
-    { id: 'goals', label: 'Planejamento', icon: <TargetIcon className="text-xl" /> },
-    { id: 'reports', label: 'Relatórios', icon: <ChartIcon className="text-xl" /> },
-    { id: 'profile', label: 'Perfil', icon: <ProfileIcon className="text-xl" /> },
+    { path: '/app/dashboard', label: 'Dashboard', icon: <DashboardIcon className="text-xl" /> },
+    { path: '/app/lancamentos', label: 'Lançamentos', icon: <ListIcon className="text-xl" /> },
+    { path: '/app/planejamento', label: 'Planejamento', icon: <TargetIcon className="text-xl" /> },
+    { path: '/app/relatorios', label: 'Relatórios', icon: <ChartIcon className="text-xl" /> },
+    { path: '/app/perfil', label: 'Perfil', icon: <ProfileIcon className="text-xl" /> },
   ];
 
   const isAdmin = userProfile.role && ['admin', 'super_admin', 'operational_admin', 'support_admin'].includes(userProfile.role);
@@ -43,7 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside className="w-64 h-full bg-white border-r border-gray-200 flex flex-col flex-shrink-0 transition-all duration-300">
       {/* Logo Area */}
       <div className="h-20 flex items-center px-6 border-b border-gray-100">
-        <div className="flex items-center gap-3 cursor-pointer" onClick={() => onSetView('dashboard')}>
+        <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/app/dashboard')}>
             <div className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white w-9 h-9 rounded-lg shadow-md shadow-blue-600/20 flex items-center justify-center shrink-0">
               <WalletIcon className="text-lg" />
             </div>
@@ -67,19 +66,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <p className="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-2">Menu</p>
             {navItems.map((item) => (
             <button
-                key={item.id}
-                onClick={() => onSetView(item.id as View)}
+                key={item.path}
+                onClick={() => navigate(item.path)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group ${
-                currentView === item.id 
+                currentPath === item.path 
                     ? 'bg-blue-50 text-blue-700 shadow-sm' 
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
             >
-                <span className={`transition-colors ${currentView === item.id ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`}>
+                <span className={`transition-colors ${currentPath === item.path ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`}>
                     {item.icon}
                 </span>
                 {item.label}
-                {currentView === item.id && (
+                {currentPath === item.path && (
                     <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600"></span>
                 )}
             </button>
@@ -87,14 +86,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {isAdmin && (
                 <button
-                    onClick={() => onSetView('admin')}
+                    onClick={() => navigate('/app/admin')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group ${
-                    currentView === 'admin' 
+                    currentPath === '/app/admin' 
                         ? 'bg-purple-50 text-purple-700 shadow-sm' 
                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                 >
-                    <span className={`transition-colors ${currentView === 'admin' ? 'text-purple-600' : 'text-gray-400 group-hover:text-gray-600'}`}>
+                    <span className={`transition-colors ${currentPath === '/app/admin' ? 'text-purple-600' : 'text-gray-400 group-hover:text-gray-600'}`}>
                         <AdminPanelSettingsIcon className="text-xl" />
                     </span>
                     Administração

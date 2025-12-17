@@ -1,15 +1,18 @@
-
 import React from 'react';
 import { DashboardIcon, ListIcon, ChartIcon, TargetIcon, ProfileIcon } from './Icons';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface BottomNavItemProps {
-  icon: string; // Material Symbols icon name
+  icon: string; 
   label: string;
-  isActive: boolean;
-  onClick: () => void;
+  to: string; 
 }
 
-export const BottomNavItem: React.FC<BottomNavItemProps> = ({ icon, label, isActive, onClick }) => {
+export const BottomNavItem: React.FC<BottomNavItemProps> = ({ icon, label, to }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isActive = location.pathname === to;
+
   const IconComponent = (props: any) => {
     switch (icon) {
       case 'space_dashboard': return <DashboardIcon {...props} />;
@@ -23,7 +26,7 @@ export const BottomNavItem: React.FC<BottomNavItemProps> = ({ icon, label, isAct
 
   return (
     <button
-      onClick={onClick}
+      onClick={() => navigate(to)}
       className={`flex flex-col items-center justify-center flex-1 py-2 text-sm transition-colors duration-200 ${isActive ? 'text-blue-600 font-semibold' : 'text-gray-500 hover:text-gray-700'}`}
       aria-current={isActive ? 'page' : undefined}
       aria-label={label}
