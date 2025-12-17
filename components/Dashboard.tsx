@@ -182,11 +182,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ expenses, isLoading, userP
       reminderStatusColor = 'text-orange-600 font-medium';
   }
 
-  // Últimas 5 transações
+  // Últimas transações - Agora mostrando até 20 itens para preencher o card
   const recentTransactions = useMemo(() => {
       return [...expenses]
         .sort((a, b) => new Date(b.purchaseDate).getTime() - new Date(a.purchaseDate).getTime())
-        .slice(0, 5);
+        .slice(0, 20); // Aumentado de 5 para 20
   }, [expenses]);
 
   return (
@@ -419,10 +419,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ expenses, isLoading, userP
                 </div>
             </div>
 
-            {/* Column 2: Recent Transactions */}
+            {/* Column 2: Recent Transactions - UPDATED TO FILL SPACE */}
             <div className="lg:col-span-1">
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 h-full">
-                    <div className="flex items-center justify-between mb-4">
+                <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 h-full flex flex-col">
+                    <div className="flex items-center justify-between mb-4 flex-shrink-0">
                         <h2 className="font-bold text-gray-800 flex items-center gap-2">
                             <ListIcon className="text-gray-400" />
                             Últimos Registros
@@ -430,7 +430,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ expenses, isLoading, userP
                     </div>
                     
                     {recentTransactions.length > 0 ? (
-                        <div className="space-y-4">
+                        <div className="space-y-4 flex-1 overflow-y-auto custom-scrollbar pr-2 min-h-0">
                             {recentTransactions.map((expense) => (
                                 <div key={expense.id} className="flex items-center justify-between group">
                                     <div className="flex items-center gap-3 overflow-hidden">
@@ -454,14 +454,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ expenses, isLoading, userP
                             ))}
                         </div>
                     ) : (
-                        <div className="h-40 flex flex-col items-center justify-center text-gray-400 text-center">
+                        <div className="h-40 flex flex-col items-center justify-center text-gray-400 text-center flex-1">
                             <span className="material-symbols-outlined text-3xl mb-2 opacity-50">receipt_long</span>
                             <p className="text-sm">Nenhum lançamento recente.</p>
                         </div>
                     )}
                     
-                    {expenses.length > 5 && (
-                        <div className="mt-6 pt-4 border-t border-gray-50">
+                    {expenses.length > 20 && (
+                        <div className="mt-6 pt-4 border-t border-gray-50 flex-shrink-0">
                              <button 
                                 onClick={onViewAll} 
                                 className="w-full text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center justify-center gap-1 uppercase tracking-wide"
