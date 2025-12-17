@@ -1,7 +1,22 @@
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import type { User } from '../types';
-import { PremiumIcon, ChevronRightIcon, LogoutIcon, PolicyIcon, DescriptionIcon, SupportAgentIcon, TrophyIcon, AdminPanelSettingsIcon, TrashIcon, CalendarTodayIcon, DateRangeIcon } from './Icons'; 
+import { 
+  PremiumIcon, 
+  ChevronRightIcon, 
+  LogoutIcon, 
+  PolicyIcon, 
+  DescriptionIcon, 
+  SupportAgentIcon, 
+  TrophyIcon, 
+  AdminPanelSettingsIcon, 
+  TrashIcon, 
+  CalendarTodayIcon, 
+  DateRangeIcon,
+  ShieldCheckIcon,
+  BoltIcon
+} from './Icons'; 
 import { DEFAULT_PROFILE_IMAGE, getLevelInfo } from '../types'; 
 import { useToast } from '../contexts/ToastContext'; 
 
@@ -15,7 +30,7 @@ interface ProfileProps {
   onOpenTermsOfService: () => void;
   onOpenSupport: () => void;
   onOpenAdminPanel: () => void;
-  onResetData: (period: 'all' | 'month' | 'year') => Promise<boolean>; // Atualizada assinatura
+  onResetData: (period: 'all' | 'month' | 'year') => Promise<boolean>;
 }
 
 const compressImage = (file: File, maxWidth: number, maxHeight: number, quality: number, mimeType: string = 'image/jpeg'): Promise<string> => {
@@ -29,8 +44,6 @@ const compressImage = (file: File, maxWidth: number, maxHeight: number, quality:
         const canvas = document.createElement('canvas');
         let width = img.width;
         let height = img.height;
-
-        // Calculate aspect ratio and resize
         if (width > height) {
           if (width > maxWidth) {
             height = Math.round((height *= maxWidth / width));
@@ -42,16 +55,11 @@ const compressImage = (file: File, maxWidth: number, maxHeight: number, quality:
             height = maxHeight;
           }
         }
-
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          return reject(new Error('Could not get canvas context.'));
-        }
+        if (!ctx) return reject(new Error('Context fail'));
         ctx.drawImage(img, 0, 0, width, height);
-
-        // Convert canvas to base64 with specified quality and mimeType
         resolve(canvas.toDataURL(mimeType, quality));
       };
       img.onerror = (err) => reject(err);
@@ -60,6 +68,29 @@ const compressImage = (file: File, maxWidth: number, maxHeight: number, quality:
   });
 };
 
+const SettingItem: React.FC<{ 
+  icon: React.ReactNode; 
+  label: string; 
+  onClick: () => void; 
+  color: string;
+  sublabel?: string;
+}> = ({ icon, label, onClick, color, sublabel }) => (
+  <button 
+    onClick={onClick}
+    className="w-full flex items-center justify-between p-4 bg-white hover:bg-gray-50 transition-all group rounded-2xl border border-transparent hover:border-gray-100"
+  >
+    <div className="flex items-center gap-4">
+      <div className={`w-10 h-10 rounded-xl ${color} flex items-center justify-center text-white shadow-sm transition-transform group-hover:scale-110`}>
+        {icon}
+      </div>
+      <div className="text-left">
+        <p className="font-bold text-gray-800 text-sm">{label}</p>
+        {sublabel && <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">{sublabel}</p>}
+      </div>
+    </div>
+    <ChevronRightIcon className="text-gray-300 group-hover:text-gray-600 transition-colors" />
+  </button>
+);
 
 export const Profile: React.FC<ProfileProps> = ({ 
   userProfile, 
@@ -76,235 +107,240 @@ export const Profile: React.FC<ProfileProps> = ({
   const [fileInputKey, setFileInputKey] = useState(Date.now()); 
   const { showToast } = useToast(); 
   const [isResetting, setIsResetting] = useState(false);
-  const [showDangerZone, setShowDangerZone] = useState(false); // Estado para expandir menu de dados
+  const [showDangerZone, setShowDangerZone] = useState(false);
 
   const handleImageChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (!file.type.startsWith('image/')) {
-        showToast('Formato de arquivo inválido. Por favor, selecione uma imagem (JPG, PNG, GIF).', 'error');
-        setFileInputKey(Date.now()); 
-        return;
-      }
-
-      const MAX_ORIGINAL_FILE_SIZE_BYTES = 5 * 1024 * 1024; 
-      if (file.size > MAX_ORIGINAL_FILE_SIZE_BYTES) {
-        showToast(`A imagem original é muito grande (${Math.round(file.size / (1024 * 1024))}MB). Selecione uma imagem menor (limite de 5MB).`, 'error');
-        setFileInputKey(Date.now()); 
-        return;
-      }
-
       try {
-        const MAX_IMAGE_PIXELS = 512; 
-        const JPEG_QUALITY = 0.4; 
-
-        const compressedImage = await compressImage(file, MAX_IMAGE_PIXELS, MAX_IMAGE_PIXELS, JPEG_QUALITY, file.type); 
-        
-        const MAX_BASE64_STRING_LENGTH_BYTES = 900 * 1024; 
-
-        if (compressedImage.length > MAX_BASE64_STRING_LENGTH_BYTES) {
-          const currentSizeKB = Math.round(compressedImage.length / 1024);
-          const limitKB = Math.round(MAX_BASE64_STRING_LENGTH_BYTES / 1024);
-          showToast(`A imagem (${currentSizeKB}KB) ainda é muito grande após a otimização para 512x512 pixels. O limite é de ${limitKB}KB. Por favor, tente uma imagem com menos detalhes ou menor resolução original.`, 'error');
-          setFileInputKey(Date.now()); 
-          return;
-        }
-
+        const compressedImage = await compressImage(file, 512, 512, 0.6); 
         const success = await onUpdateProfileImage(compressedImage); 
-
-        if (success) {
-          showToast('Foto de perfil atualizada com sucesso!', 'success');
-        } else {
-          showToast('Erro ao atualizar foto de perfil no servidor. Tente novamente.', 'error');
-        }
+        if (success) showToast('Foto atualizada!', 'success');
         setFileInputKey(Date.now()); 
       } catch (error) {
-        console.error('Profile Debug: Erro ao comprimir ou fazer upload da imagem:', error);
-        showToast('Erro ao atualizar foto de perfil. Verifique o formato ou tente uma imagem menor.', 'error');
+        showToast('Erro ao processar imagem.', 'error');
       }
     }
   }, [onUpdateProfileImage, showToast]);
 
-  const handleResetClick = async (period: 'all' | 'month' | 'year') => {
-    const messages = {
-        'month': 'Isso apagará TODOS os lançamentos deste MÊS.',
-        'year': 'Isso apagará TODOS os lançamentos deste ANO.',
-        'all': 'ATENÇÃO: Isso apagará TODOS os dados da sua conta PERMANENTEMENTE.'
-    };
-
-    if (window.confirm(`${messages[period]} Tem certeza?`)) {
-      setIsResetting(true);
-      await onResetData(period);
-      setIsResetting(false);
-    }
-  };
-
-  const triggerFileInput = useCallback(() => {
-    const fileInput = document.getElementById('profile-image-upload');
-    if (fileInput) {
-      fileInput.click();
-    }
-  }, []);
-
-  const effectiveProfileImage = userProfile.profileImage || DEFAULT_PROFILE_IMAGE;
-  const effectiveUserName = userProfile.name || userProfile.email?.split('@')[0] || 'Usuário';
+  const triggerFileInput = () => document.getElementById('profile-image-upload')?.click();
 
   const levelInfo = getLevelInfo(userProfile.xp || 0);
-  
   const isAdmin = userProfile.role && ['admin', 'super_admin', 'operational_admin', 'support_admin'].includes(userProfile.role);
+  const isPremium = !!userProfile.subscriptionExpiresAt;
 
-  if (isLoading && (!userProfile || !userProfile.uid)) { 
+  if (isLoading && !userProfile.uid) { 
     return (
-        <div className="p-4 flex flex-col items-center justify-center min-h-[calc(100vh-120px)] text-center text-gray-500">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4"></div>
-            <p className="text-lg">Carregando perfil...</p>
-        </div>
+      <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] text-gray-400">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4"></div>
+        <p>Carregando perfil...</p>
+      </div>
     );
   }
 
-  // Adicionado padding-bottom extra (pb-24) para garantir scroll no mobile
   return (
-    <div className="p-4 space-y-6 pb-24">
-      <div className="bg-white p-6 rounded-2xl shadow-sm flex flex-col items-center">
-        <div className="relative w-28 h-28 mb-4 shrink-0 aspect-square">
-          <img 
-            src={effectiveProfileImage} 
-            alt="Foto de Perfil" 
-            className="w-full h-full rounded-full object-cover border-4 border-blue-200"
-          />
-          <button 
-            onClick={triggerFileInput}
-            className="absolute bottom-0 right-0 bg-blue-500 text-white rounded-full p-2 text-sm shadow-md hover:bg-blue-600 transition-colors shrink-0 aspect-square flex items-center justify-center"
-            aria-label="Alterar foto de perfil"
-          >
-            <span className="material-symbols-outlined">photo_camera</span>
-          </button>
-          <input 
-            key={fileInputKey} 
-            id="profile-image-upload" 
-            type="file" 
-            accept="image/*" 
-            className="hidden" 
-            onChange={handleImageChange} 
-            aria-label="Upload de nova foto de perfil"
-          />
-        </div>
-        <h2 className="text-xl font-bold text-gray-800">{effectiveUserName}</h2>
-        <p className="text-gray-500 text-sm mb-4">{userProfile.email}</p>
+    <div className="w-full space-y-6 pb-24 animate-fade-in">
+      {/* Grid Principal do Perfil */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Gamification Badge in Profile */}
-        <div className="flex items-center gap-2 bg-yellow-50 px-4 py-2 rounded-full border border-yellow-100">
-            <TrophyIcon className="text-yellow-600" />
-            <span className="text-sm font-bold text-yellow-800">{levelInfo.title} (Nível {levelInfo.level})</span>
+        {/* LADO ESQUERDO: Card de Identidade */}
+        <div className="lg:col-span-1 space-y-6">
+            <section className="relative overflow-hidden bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center h-full flex flex-col items-center justify-center">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none opacity-50"></div>
+                
+                <div className="relative z-10 flex flex-col items-center">
+                    <div className="relative mb-6">
+                        <motion.div 
+                        whileHover={{ scale: 1.05 }}
+                        className="w-32 h-32 rounded-full border-4 border-white shadow-xl overflow-hidden cursor-pointer shrink-0 aspect-square"
+                        onClick={triggerFileInput}
+                        >
+                        <img src={userProfile.profileImage || DEFAULT_PROFILE_IMAGE} alt="Avatar" className="w-full h-full object-cover" />
+                        </motion.div>
+                        <button 
+                        onClick={triggerFileInput}
+                        className="absolute bottom-1 right-1 bg-blue-600 text-white w-10 h-10 rounded-full shadow-lg border-2 border-white hover:bg-blue-700 transition-colors flex items-center justify-center shrink-0 aspect-square"
+                        >
+                        <span className="material-symbols-outlined text-sm">photo_camera</span>
+                        </button>
+                        <input key={fileInputKey} id="profile-image-upload" type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                    </div>
+
+                    <h2 className="text-2xl font-black text-gray-900 leading-tight">
+                        {userProfile.name || 'Usuário'}
+                    </h2>
+                    <p className="text-gray-500 text-sm font-medium mb-6">{userProfile.email}</p>
+
+                    <div className="flex items-center gap-3 bg-gray-50 px-5 py-3 rounded-2xl border border-gray-100 shadow-inner w-full">
+                        <div className="bg-yellow-100 text-yellow-600 w-10 h-10 rounded-xl flex items-center justify-center shrink-0 aspect-square shadow-sm">
+                            <TrophyIcon className="text-xl" />
+                        </div>
+                        <div className="text-left flex-1">
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Status da Conta</p>
+                            <p className="text-sm font-extrabold text-gray-800">{levelInfo.title} <span className="text-blue-600 font-black">NV.{levelInfo.level}</span></p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        {/* LADO DIREITO: Configurações e Gestão */}
+        <div className="lg:col-span-2 space-y-6">
+            
+            {/* Premium Management Card */}
+            <section>
+                <motion.div 
+                whileHover={{ y: -2 }}
+                className={`relative overflow-hidden rounded-3xl p-8 shadow-lg transition-all ${isPremium ? 'bg-gradient-to-br from-indigo-600 to-blue-700 text-white border-transparent' : 'bg-white border-2 border-dashed border-blue-200'}`}
+                >
+                {isPremium && <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full translate-x-1/3 -translate-y-1/3 blur-2xl"></div>}
+                
+                <div className="relative z-10 flex flex-col sm:flex-row justify-between items-center gap-6">
+                    <div className="space-y-2 text-center sm:text-left">
+                        <div className="flex items-center justify-center sm:justify-start gap-2">
+                            <PremiumIcon className={isPremium ? 'text-yellow-400 text-2xl' : 'text-blue-600 text-2xl'} />
+                            <h3 className={`font-black text-xl ${!isPremium && 'text-gray-800'}`}>
+                            {isPremium ? 'Membro Premium Ativo' : 'Evolua para o Premium'}
+                            </h3>
+                        </div>
+                        <p className={`text-sm font-medium leading-relaxed max-w-md ${isPremium ? 'text-blue-100' : 'text-gray-500'}`}>
+                            {isPremium 
+                            ? `Seu plano está ativo e seguro. Renovação em ${new Date(userProfile.subscriptionExpiresAt!).toLocaleDateString('pt-BR')}. Aproveite todos os recursos ilimitados.`
+                            : 'Libere leitura automática de notas com IA, relatórios de auditoria profunda e backup ilimitado em tempo real.'}
+                        </p>
+                    </div>
+                    <button 
+                    onClick={onManageSubscription}
+                    className={`px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-md transition-all active:scale-95 whitespace-nowrap min-w-[160px] ${isPremium ? 'bg-white text-blue-700 hover:bg-blue-50' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                    >
+                    {isPremium ? 'Gerenciar Plano' : 'Ver Planos'}
+                    </button>
+                </div>
+                </motion.div>
+            </section>
+
+            {/* Grid de Configurações */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <div className="space-y-6">
+                    {/* Admin Quick Access (Se for admin) */}
+                    {isAdmin && (
+                        <button 
+                            onClick={onOpenAdminPanel}
+                            className="w-full flex items-center justify-between p-6 bg-gray-900 rounded-3xl text-white shadow-xl hover:bg-black transition-all group"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center">
+                                    <AdminPanelSettingsIcon className="text-2xl" />
+                                </div>
+                                <div className="text-left">
+                                    <p className="font-bold text-base">Painel Administrativo</p>
+                                    <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Controle Global</p>
+                                </div>
+                            </div>
+                            <span className="bg-white/10 p-2 rounded-full group-hover:bg-white/20 transition-colors">
+                                <ChevronRightIcon />
+                            </span>
+                        </button>
+                    )}
+
+                    {/* Navigation Group */}
+                    <section className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden divide-y divide-gray-50">
+                        <SettingItem 
+                        icon={<SupportAgentIcon />} 
+                        label="Suporte Especializado" 
+                        sublabel="Ajuda e Atendimento"
+                        color="bg-teal-500" 
+                        onClick={onOpenSupport} 
+                        />
+                        <SettingItem 
+                        icon={<PolicyIcon />} 
+                        label="Privacidade" 
+                        sublabel="Seus dados estão seguros"
+                        color="bg-purple-500" 
+                        onClick={onOpenPrivacyPolicy} 
+                        />
+                        <SettingItem 
+                        icon={<DescriptionIcon />} 
+                        label="Termos de Uso" 
+                        sublabel="Contrato do serviço"
+                        color="bg-indigo-500" 
+                        onClick={onOpenTermsOfService} 
+                        />
+                    </section>
+                </div>
+
+                <div className="space-y-6">
+                    {/* Data Management Section */}
+                    <section className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden h-fit">
+                        <button 
+                        onClick={() => setShowDangerZone(!showDangerZone)}
+                        className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-all group"
+                        >
+                        <div className="flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-orange-600 bg-orange-50 transition-colors ${showDangerZone && 'bg-orange-600 text-white'}`}>
+                            <span className="material-symbols-outlined text-2xl">database</span>
+                            </div>
+                            <div className="text-left">
+                            <h3 className="text-base font-bold text-gray-800">Dados da Conta</h3>
+                            <p className="text-xs text-gray-400">Limpar histórico e resetar registros</p>
+                            </div>
+                        </div>
+                        <ChevronRightIcon className={`transition-transform duration-300 ${showDangerZone ? 'rotate-90' : ''}`} />
+                        </button>
+
+                        {showDangerZone && (
+                        <motion.div 
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            className="px-6 pb-6 space-y-4 bg-gray-50/50 pt-2"
+                        >
+                            <div className="grid grid-cols-2 gap-3">
+                            <button 
+                                onClick={() => onResetData('month')} 
+                                disabled={isResetting}
+                                className="flex flex-col items-center gap-2 p-5 bg-white border border-gray-200 rounded-2xl hover:border-blue-200 hover:shadow-sm transition-all group"
+                            >
+                                <CalendarTodayIcon className="text-gray-400 group-hover:text-blue-500" />
+                                <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Limpar Mês</span>
+                            </button>
+                            <button 
+                                onClick={() => onResetData('year')} 
+                                disabled={isResetting}
+                                className="flex flex-col items-center gap-2 p-5 bg-white border border-gray-200 rounded-2xl hover:border-blue-200 hover:shadow-sm transition-all group"
+                            >
+                                <DateRangeIcon className="text-gray-400 group-hover:text-blue-500" />
+                                <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Limpar Ano</span>
+                            </button>
+                            </div>
+                            <button 
+                            onClick={() => onResetData('all')} 
+                            disabled={isResetting}
+                            className="w-full flex items-center justify-center gap-3 p-5 bg-red-50 text-red-600 rounded-2xl border border-red-100 hover:bg-red-100 font-bold text-sm transition-colors shadow-sm"
+                            >
+                            <TrashIcon />
+                            {isResetting ? 'Apagando registros...' : 'Apagar Tudo (Resetar)'}
+                            </button>
+                        </motion.div>
+                        )}
+                    </section>
+
+                    {/* Logout Button */}
+                    <button 
+                    onClick={handleLogout} 
+                    className="w-full flex items-center justify-center gap-3 p-6 bg-white border border-gray-200 rounded-3xl text-red-600 font-black text-sm uppercase tracking-widest hover:bg-red-50 transition-all shadow-sm active:scale-95 group"
+                    >
+                    <LogoutIcon className="group-hover:scale-110 transition-transform" />
+                    Encerrar Sessão
+                    </button>
+                </div>
+            </div>
         </div>
       </div>
 
-      {isAdmin && (
-        <div className="bg-gradient-to-r from-gray-900 to-gray-800 p-1 rounded-2xl shadow-lg">
-            <button 
-                onClick={onOpenAdminPanel}
-                className="flex items-center justify-between w-full py-4 px-4 rounded-xl bg-white/10 hover:bg-white/20 transition-colors text-white"
-            >
-                <div className="flex items-center gap-3">
-                    <div className="bg-white/20 p-2 rounded-lg">
-                        <AdminPanelSettingsIcon className="text-xl" />
-                    </div>
-                    <div className="text-left">
-                        <span className="block font-bold text-sm">Painel Administrativo</span>
-                        <span className="block text-[10px] opacity-70">Gerenciar usuários e sistema</span>
-                    </div>
-                </div>
-                <ChevronRightIcon className="text-lg opacity-70" />
-            </button>
-        </div>
-      )}
-
-      <div className="bg-white p-6 rounded-2xl shadow-sm space-y-4">
-        <h3 className="text-lg font-semibold text-gray-700">Configurações</h3>
-        <button onClick={onManageSubscription} className="flex items-center justify-between w-full py-3 px-2 rounded-lg hover:bg-gray-50 transition-colors" aria-label="Gerenciar assinatura premium">
-          <div className="flex items-center">
-            <PremiumIcon className="text-blue-600 text-xl mr-3" />
-            <span className="font-medium text-gray-700">Assinatura Premium</span>
-          </div>
-          <ChevronRightIcon className="text-lg text-gray-400" />
-        </button>
-        <button onClick={onOpenPrivacyPolicy} className="flex items-center justify-between w-full py-3 px-2 rounded-lg hover:bg-gray-50 transition-colors" aria-label="Ver política de privacidade">
-          <div className="flex items-center">
-            <PolicyIcon className="text-purple-600 text-xl mr-3" />
-            <span className="font-medium text-gray-700">Política de Privacidade</span>
-          </div>
-          <ChevronRightIcon className="text-lg text-gray-400" />
-        </button>
-        <button onClick={onOpenTermsOfService} className="flex items-center justify-between w-full py-3 px-2 rounded-lg hover:bg-gray-50 transition-colors" aria-label="Ver termos de serviço">
-          <div className="flex items-center">
-            <DescriptionIcon className="text-indigo-600 text-xl mr-3" />
-            <span className="font-medium text-gray-700">Termos de Serviço</span>
-          </div>
-          <ChevronRightIcon className="text-lg text-gray-400" />
-        </button>
-        <button onClick={onOpenSupport} className="flex items-center justify-between w-full py-3 px-2 rounded-lg hover:bg-gray-50 transition-colors" aria-label="Entrar em contato com o suporte">
-          <div className="flex items-center">
-            <SupportAgentIcon className="text-teal-600 text-xl mr-3" />
-            <span className="font-medium text-gray-700">Suporte</span>
-          </div>
-          <ChevronRightIcon className="text-lg text-gray-400" />
-        </button>
-      </div>
-
-      {/* Seção "Gerenciamento de Dados" (Antiga Zona de Perigo Melhorada) */}
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
-        <button 
-            onClick={() => setShowDangerZone(!showDangerZone)}
-            className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-colors"
-        >
-            <div className="flex items-center gap-3">
-                <div className="bg-orange-100 p-2 rounded-lg text-orange-600">
-                    <span className="material-symbols-outlined text-xl">database</span>
-                </div>
-                <div className="text-left">
-                    <h3 className="text-base font-semibold text-gray-800">Gerenciamento de Dados</h3>
-                    <p className="text-xs text-gray-500">Limpar histórico e resetar conta</p>
-                </div>
-            </div>
-            <ChevronRightIcon className={`text-gray-400 transition-transform ${showDangerZone ? 'rotate-90' : ''}`} />
-        </button>
-
-        {showDangerZone && (
-            <div className="px-6 pb-6 pt-2 space-y-3 animate-fade-in bg-gray-50/50">
-                <button 
-                    onClick={() => handleResetClick('month')} 
-                    disabled={isResetting}
-                    className="w-full flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-sm text-gray-700 font-medium"
-                >
-                    <CalendarTodayIcon className="text-gray-400" />
-                    Limpar Mês Atual
-                </button>
-                <button 
-                    onClick={() => handleResetClick('year')} 
-                    disabled={isResetting}
-                    className="w-full flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-sm text-gray-700 font-medium"
-                >
-                    <DateRangeIcon className="text-gray-400" />
-                    Limpar Ano Atual
-                </button>
-                <button 
-                    onClick={() => handleResetClick('all')} 
-                    disabled={isResetting}
-                    className="w-full flex items-center gap-3 p-3 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 transition-colors text-sm text-red-600 font-bold"
-                >
-                    <TrashIcon className="text-red-500" />
-                    {isResetting ? 'Processando...' : 'Resetar Conta Completa'}
-                </button>
-            </div>
-        )}
-      </div>
-
-      <div className="bg-white p-6 rounded-2xl shadow-sm">
-        <button onClick={handleLogout} className="flex items-center w-full py-3 px-2 text-red-600 font-medium rounded-lg hover:bg-red-50 transition-colors" aria-label="Sair da conta">
-          <LogoutIcon className="text-xl mr-3" />
-          Sair
-        </button>
-      </div>
+      <p className="text-center text-[10px] text-gray-400 font-bold uppercase tracking-widest pt-12 pb-8">
+        MeuGasto v3.3 • Criado com excelência • 2024
+      </p>
     </div>
   );
 };
