@@ -60,7 +60,7 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
 
   // Typing Indicator Logic
   const [isSupportTyping, setIsSupportTyping] = useState(false);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimeoutRef = useRef<any>(null);
 
   // File Upload State
   const [isUploading, setIsUploading] = useState(false);
@@ -532,7 +532,7 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
                         type="button"
                         onClick={handleFileSelect}
                         disabled={isUploading}
-                        className="text-gray-400 hover:text-blue-600 p-2 rounded-full hover:bg-blue-50 transition-colors mb-0.5 ml-1 flex-shrink-0"
+                        className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-blue-600 rounded-full hover:bg-blue-50 transition-colors flex-shrink-0"
                         title="Enviar print/arquivo"
                     >
                         <PaperClipIcon className="text-xl" />
@@ -564,14 +564,14 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
                         disabled={!newMessage.trim() && !isUploading}
                         className="
                             group flex items-center justify-center shrink-0
-                            w-11 h-11 rounded-full 
+                            w-10 h-10 rounded-full 
                             bg-black text-white 
                             shadow-md shadow-gray-500/20 
                             transition-all duration-300 ease-out
                             hover:shadow-lg hover:scale-105 hover:bg-gray-800
                             active:scale-95 active:shadow-sm
                             disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:shadow-none disabled:scale-100
-                            mb-0.5 mr-0.5
+                            mb-0.5 mr-0.5 aspect-square
                         "
                         >
                         <SendIcon className="text-xl relative left-0.5 top-0.5 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-disabled:transform-none" />

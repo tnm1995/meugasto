@@ -422,7 +422,7 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
                                 type="button"
                                 onClick={handleFileSelect}
                                 disabled={isUploading}
-                                className="text-gray-400 hover:text-blue-600 p-3 rounded-xl bg-gray-50 border border-gray-200 hover:bg-blue-50 transition-colors flex-shrink-0"
+                                className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-blue-600 rounded-xl bg-gray-50 border border-gray-200 hover:bg-blue-50 transition-colors flex-shrink-0"
                                 title="Enviar print/arquivo"
                             >
                                 {isUploading ? (
@@ -450,7 +450,7 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
                                 <button 
                                     type="submit"
                                     disabled={(!replyText.trim() && !isUploading)}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                                 >
                                     <SendIcon className="text-sm" />
                                 </button>
