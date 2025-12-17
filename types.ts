@@ -36,14 +36,6 @@ export interface User {
   lastSeen?: any;
 }
 
-export interface Category {
-  id: string;
-  name: string;
-  type: 'expense' | 'income';
-  subcategories: string[];
-  isDefault?: boolean;
-}
-
 export interface Expense {
   id: string;
   localName: string;
@@ -155,7 +147,7 @@ export type DocumentWithId<T> = T & { id: string };
 
 // Constants
 
-export const EXPENSE_CATEGORIES_DEFAULT: Record<string, string[]> = {
+export const EXPENSE_CATEGORIES: Record<string, string[]> = {
   'Alimentação': [
     'Supermercado (Geral)', 'Restaurante / Almoço', 'Lanches / Fast Food', 'Padaria / Café', 
     'Açougue / Peixaria', 'Hortifruti / Feira', 'Bebidas', 'Delivery (iFood/Rappi)', 'Doces e Sobremesas'
@@ -201,7 +193,7 @@ export const EXPENSE_CATEGORIES_DEFAULT: Record<string, string[]> = {
   ]
 };
 
-export const INCOME_CATEGORIES_DEFAULT: Record<string, string[]> = {
+export const INCOME_CATEGORIES: Record<string, string[]> = {
     'Salário': ['Mensal', 'Adiantamento', '13º Salário', 'Férias', 'Bônus / PLR'],
     'Empreendimento': ['Vendas de Produtos', 'Prestação de Serviços', 'Pró-labore', 'Lucros / Dividendos'],
     'Investimentos': ['Dividendos / Juros', 'Aluguéis Recebidos', 'Renda Fixa (Resgate)', 'Venda de Ativos'],
@@ -209,9 +201,7 @@ export const INCOME_CATEGORIES_DEFAULT: Record<string, string[]> = {
     'Outros': ['Presentes / Doações', 'Reembolsos', 'Venda de Bens Pessoais', 'Empréstimos Recebidos', 'Outros']
 };
 
-export const CATEGORIES = EXPENSE_CATEGORIES_DEFAULT;
-export const EXPENSE_CATEGORIES = EXPENSE_CATEGORIES_DEFAULT;
-export const INCOME_CATEGORIES = INCOME_CATEGORIES_DEFAULT;
+export const CATEGORIES = EXPENSE_CATEGORIES;
 
 export const PAYMENT_METHODS = [
   'Cartão de Crédito',

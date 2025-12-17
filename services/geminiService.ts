@@ -1,8 +1,11 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import type { Expense, BankTransaction, Omit, Category } from '../types';
+import type { Expense, BankTransaction, Omit } from '../types';
+import { CATEGORIES } from '../types';
 
 // Initialize the Gemini API client directly with the environment variable
+// adhering to the requirement: const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// NOTE: process.env.API_KEY is replaced by Vite at build time via define in vite.config.ts.
 const envApiKey = process.env.API_KEY;
 const apiKey = (envApiKey && envApiKey.trim() !== '') ? envApiKey : 'dummy-key';
 const ai = new GoogleGenAI({ apiKey: apiKey });
@@ -11,6 +14,11 @@ const ai = new GoogleGenAI({ apiKey: apiKey });
 const cleanJsonString = (str: string) => {
   return str.replace(/```json|```/g, '').trim();
 };
+
+// Cria uma representação de texto da árvore de categorias para o prompt
+const categoriesContext = Object.entries(CATEGORIES)
+  .map(([cat, subs]) => `${cat}: [${subs.join(', ')}]`)
+  .join('\n');
 
 const expenseResponseSchema = {
   type: Type.OBJECT,
@@ -57,14 +65,8 @@ const bankTransactionResponseSchema = {
   },
 };
 
-export const extractExpenseFromImage = async (base64Image: string, userCategories: Category[]): Promise<Omit<Expense, 'id'>> => {
+export const extractExpenseFromImage = async (base64Image: string): Promise<Omit<Expense, 'id'>> => {
   try {
-    // Converte a lista de categorias do usuário para um formato que a IA entenda
-    const expenseCats = userCategories.filter(c => c.type === 'expense');
-    const categoriesContext = expenseCats
-      .map((cat) => `${cat.name}: [${cat.subcategories.join(', ')}]`)
-      .join('\n');
-
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: { parts: [
@@ -76,19 +78,21 @@ export const extractExpenseFromImage = async (base64Image: string, userCategorie
         1. IDENTIFICAÇÃO DO LOCAL (CRÍTICO):
            - Encontre o Nome Fantasia da loja no topo.
            - Use o NOME DA LOJA para definir o contexto.
+           - Exemplo: "Centro de Jardinagem Junkes" -> O contexto é "Moradia" -> "Jardinagem / Plantas", mesmo que o item seja "Pimenta" (provavelmente uma muda).
+           - Exemplo: "Loja dos Descontos" -> Analise os itens para decidir (provavelmente "Alimentação" -> "Supermercado" ou "Compras").
 
         2. EXTRAÇÃO DE ITENS:
            - Liste TODOS os itens.
-           - Ignore códigos numéricos no início.
+           - Ignore códigos numéricos no início (ex: "001 PIMENTA" -> "PIMENTA").
            - Preço deve ser o valor TOTAL do item.
 
         3. CATEGORIZAÇÃO INTELIGENTE:
-           Use esta lista como referência estrita de categorias e subcategorias:
+           Use esta lista como referência estrita:
            ${categoriesContext}
 
            Regras:
-           - Priorize a categoria do ESTABELECIMENTO.
-           - Se for Restaurante/Lanchonete, use uma categoria de alimentação adequada.
+           - Priorize a categoria do ESTABELECIMENTO. Se for um posto de gasolina, é "Transporte" -> "Combustível", mesmo se comprou água.
+           - Se for Restaurante/Lanchonete, use "Alimentação" -> "Restaurante / Almoço".
 
         4. DADOS GERAIS:
            - Data: Formato YYYY-MM-DD.
@@ -110,27 +114,41 @@ export const extractExpenseFromImage = async (base64Image: string, userCategorie
     const cleanedText = cleanJsonString(response.text);
     const parsedData = JSON.parse(cleanedText);
     
-    // Validação e Fallback para Categorias dinâmicas
+    // Validação e Fallback para Categorias
     let finalCategory = parsedData.category;
     let finalSubcategory = parsedData.subcategory;
 
-    const userCatNames = expenseCats.map(c => c.name);
-    
-    if (!userCatNames.includes(finalCategory)) {
-        // Tenta encontrar se a subcategoria existe em alguma categoria principal do usuário
-        const foundCat = expenseCats.find(c => c.subcategories.includes(finalSubcategory));
-        if (foundCat) {
-            finalCategory = foundCat.name;
+    // Normalização básica se a IA alucinar categorias fora da lista
+    if (!CATEGORIES[finalCategory]) {
+        // Tenta encontrar se a subcategoria existe em alguma categoria principal
+        const foundEntry = Object.entries(CATEGORIES).find(([_, subs]) => subs.includes(finalSubcategory));
+        if (foundEntry) {
+            finalCategory = foundEntry[0];
         } else {
-            // Fallback para uma categoria existente ou 'Outros' se o usuário tiver
-            finalCategory = userCatNames.includes('Outros') ? 'Outros' : (userCatNames[0] || 'Despesa');
-            const catObj = expenseCats.find(c => c.name === finalCategory);
-            finalSubcategory = (catObj && catObj.subcategories[0]) || 'Geral';
+            // Fallback inteligente baseado no nome do local se possível, ou Outros
+            const local = (parsedData.localName || '').toLowerCase();
+            if (local.includes('supermercado') || local.includes('atacad') || local.includes('market')) {
+                finalCategory = 'Alimentação';
+                finalSubcategory = 'Supermercado (Geral)';
+            } else if (local.includes('jardin') || local.includes('flor')) {
+                finalCategory = 'Moradia';
+                finalSubcategory = 'Jardinagem / Plantas';
+            } else if (local.includes('farma') || local.includes('drogaria')) {
+                finalCategory = 'Saúde e Higiene';
+                finalSubcategory = 'Farmácia / Medicamentos';
+            } else if (local.includes('posto') || local.includes('combustivel')) {
+                finalCategory = 'Transporte';
+                finalSubcategory = 'Combustível';
+            } else {
+                finalCategory = 'Outros';
+                finalSubcategory = 'Não Identificado';
+            }
         }
     } else {
-        const catObj = expenseCats.find(c => c.name === finalCategory);
-        if (catObj && !catObj.subcategories.includes(finalSubcategory)) {
-            finalSubcategory = catObj.subcategories[0] || 'Geral';
+        // Se a categoria existe, verifica se a subcategoria é válida para ela
+        if (!CATEGORIES[finalCategory].includes(finalSubcategory)) {
+            // Se não for, usa a primeira subcategoria disponível (geralmente a mais genérica)
+            finalSubcategory = CATEGORIES[finalCategory][0] || 'Outros';
         }
     }
     
@@ -148,10 +166,20 @@ export const extractExpenseFromImage = async (base64Image: string, userCategorie
 
   } catch (error: any) {
     console.error('Gemini Error Full:', JSON.stringify(error, null, 2));
+    
     const errorMessage = error.message || '';
-    if (errorMessage.includes('API key not valid') || error.status === 403 || error.status === 400 || errorMessage.includes('PERMISSION_DENIED')) {
+    
+    // Identifica erro de API não habilitada ou chave inválida
+    if (
+        errorMessage.includes('API key not valid') || 
+        errorMessage.includes('Generative Language API has not been used') || 
+        error.status === 403 || 
+        error.status === 400 || // API key not valid is often 400
+        errorMessage.includes('PERMISSION_DENIED')
+    ) {
         throw new Error('API_NOT_ENABLED');
     }
+
     throw new Error(`Erro ao processar imagem: ${errorMessage || 'Tente novamente.'}`);
   }
 };
@@ -177,10 +205,20 @@ export const extractTransactionsFromPdfText = async (pdfText: string): Promise<B
 
   } catch (error: any) {
     console.error('Gemini PDF Error:', error);
+    
     const errorMessage = error.message || '';
-    if (errorMessage.includes('API key not valid') || error.status === 403 || error.status === 400 || errorMessage.includes('PERMISSION_DENIED')) {
+
+    // Identifica erro de API não habilitada
+    if (
+        errorMessage.includes('API key not valid') ||
+        errorMessage.includes('Generative Language API has not been used') || 
+        error.status === 403 || 
+        error.status === 400 ||
+        errorMessage.includes('PERMISSION_DENIED')
+    ) {
         throw new Error('API_NOT_ENABLED');
     }
+
     throw new Error('Erro ao processar PDF.');
   }
 };
