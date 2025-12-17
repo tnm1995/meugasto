@@ -357,12 +357,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, scrollTarget,
             viewport={{ once: true }}
             className="relative rounded-[2.5rem] overflow-hidden shadow-2xl shadow-blue-900/20 border border-white/10"
           >
-            {/* O Fundo animado agora é acompanhado por um overlay de gradiente para suavizar no mobile */}
             <AnimatedGradientBackground />
             <div className="absolute inset-0 bg-gradient-to-b from-blue-950/20 via-transparent to-blue-950/60 z-10 pointer-events-none"></div>
 
             <div className="relative z-20 flex flex-col items-center text-center p-8 sm:p-16 lg:p-20">
-              {/* Badge de Prova Social */}
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -403,8 +401,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, scrollTarget,
                 >
                   <span className="relative z-10">Garantir Meu Acesso</span>
                   <ChevronRightIcon className="text-xl relative z-10 transition-transform group-hover:translate-x-1" />
-                  
-                  {/* Efeito de brilho pulsante interno */}
                   <motion.div 
                     animate={{ x: ['-100%', '200%'] }}
                     transition={{ repeat: Infinity, duration: 2, ease: "easeInOut", repeatDelay: 1 }}
