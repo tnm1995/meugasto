@@ -1,7 +1,6 @@
-import React, { useState, useCallback, useMemo, useEffect, Suspense, lazy } from 'react';
-import type { Expense, User, Budget, Goal, Reminder, Omit, SavingsGoal } from '../types';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 
+import React, { useState, useCallback, useMemo, useEffect, Suspense, lazy } from 'react';
+import type { Expense, View, User, Budget, Goal, Reminder, Omit, SavingsGoal } from '../types';
 // Importa componentes via React.lazy
 const Dashboard = lazy(() => import('./Dashboard').then(module => ({ default: module.Dashboard })));
 const Entries = lazy(() => import('./Entries').then(module => ({ default: module.Entries })));
@@ -20,11 +19,11 @@ import { APISetupErrorModal } from './APISetupErrorModal';
 import { PlusIcon } from './Icons';
 import { Header } from './Header';
 import { BottomNavItem } from './BottomNav';
-import { Sidebar } from './Sidebar'; 
+import { Sidebar } from './Sidebar'; // Import Sidebar
 
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { useFirestoreDocument } from '../hooks/useFirestoreDocument';
-import { DEFAULT_REMINDER_SETTINGS, DEFAULT_PROFILE_IMAGE } from '../types';
+import { DEFAULT_REMINDER_SETTINGS, DEFAULT_PROFILE_IMAGE, getLevelInfo } from '../types';
 import { db } from '../services/firebaseService';
 import { where, orderBy, doc, setDoc, getDoc, updateDoc, increment, writeBatch, collection, getDocs, query } from 'firebase/firestore';
 import { logout } from '../services/authService';
@@ -36,11 +35,13 @@ interface MainAppContentProps {
   currentUser: User;
   onOpenGlobalPrivacyPolicy: () => void;
   onOpenGlobalTermsOfService: () => void;
-  onOpenSupport: () => void;
+  onOpenSupport: () => void; // New prop to trigger global chat
   expirationWarning?: { show: boolean; days: number };
+  onViewChange?: (view: View) => void; // Callback para notificar mudança de visualização
 }
 
-export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onOpenGlobalPrivacyPolicy, onOpenGlobalTermsOfService, onOpenSupport, expirationWarning }) => {
+export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onOpenGlobalPrivacyPolicy, onOpenGlobalTermsOfService, onOpenSupport, expirationWarning, onViewChange }) => {
+  const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
   const [initialExpenseData, setInitialExpenseData] = useState<Omit<Expense, 'id'> | null>(null);
@@ -56,8 +57,13 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
   const [isAPISetupErrorModalOpen, setIsAPISetupErrorModalOpen] = useState(false);
 
   const { showToast } = useToast();
-  const navigate = useNavigate();
-  const location = useLocation();
+
+  // Notifica o pai (App.tsx) sempre que a view mudar
+  useEffect(() => {
+    if (onViewChange) {
+      onViewChange(currentView);
+    }
+  }, [currentView, onViewChange]);
 
   const expenseQueryConstraints = useMemo(() => [orderBy('purchaseDate', 'desc')], []);
   const goalQueryConstraints = useMemo(() => {
@@ -75,7 +81,7 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
   const userDocPath = `users/${currentUser.uid}`;
   const { data: userDataFromFirestore, loading: loadingUserDoc } = useFirestoreDocument<User>(userDocPath);
 
-  // --- Lógica de Notificações --- (Mantida)
+  // --- Lógica de Notificações --- (Mantida igual)
   useEffect(() => {
     if (!reminders || reminders.length === 0) return;
     const checkReminders = () => {
@@ -189,8 +195,9 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
   const handleAppLogout = useCallback(async () => {
     const { success, message } = await logout();
     showToast(message, success ? 'success' : 'error');
-    if (success) navigate('/');
-  }, [showToast, navigate]);
+  }, [showToast]);
+
+  // --- CRUD Handlers ---
 
   const onSaveExpense = useCallback(async (expenseData: Omit<Expense, 'id'>, idToUpdate?: string) => {
       if (idToUpdate) {
@@ -209,6 +216,7 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
         showToast(success ? 'Despesa excluída com sucesso!' : 'Erro ao excluir despesa.', success ? 'success' : 'error');
   }, [deleteExpenseFirestore, showToast]);
 
+  // ORÇAMENTOS (Goal) Handlers
   const onSaveGoal = useCallback(async (goalData: Omit<Goal, 'id'>, idToUpdate?: string) => {
       if (idToUpdate) {
         const success = await updateGoalFirestore(idToUpdate, goalData);
@@ -226,6 +234,7 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
         showToast(success ? 'Orçamento excluído!' : 'Erro ao excluir.', success ? 'success' : 'error');
   }, [deleteGoalFirestore, showToast]);
 
+  // METAS DE ECONOMIA (SavingsGoal) Handlers
   const onSaveSavingsGoal = useCallback(async (data: Omit<SavingsGoal, 'id'>, idToUpdate?: string) => {
       if (idToUpdate) {
           const success = await updateSavingsFirestore(idToUpdate, data);
@@ -242,6 +251,7 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
       const success = await deleteSavingsFirestore(id);
       showToast(success ? 'Meta excluída.' : 'Erro ao excluir meta.', success ? 'success' : 'error');
   }, [deleteSavingsFirestore, showToast]);
+
 
   const onAddReminder = useCallback(async (reminderData: Omit<Reminder, 'id'>) => {
     const id = await addReminderFirestore(reminderData);
@@ -261,14 +271,19 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
 
   const onManageSubscription = useCallback(() => setIsSubscriptionModalFromComponent(true), []);
   const onManageReminders = useCallback(() => setIsReminderModalOpen(true), []);
+  
   const handleAPISetupError = useCallback(() => { setIsAPISetupErrorModalOpen(true); }, []);
 
+  // --- Função para Resetar Lançamentos (Batch Delete com Filtros) ---
   const handleResetData = useCallback(async (period: 'all' | 'month' | 'year') => {
     if (!currentUser.uid) return false;
+    
     try {
       const expensesRef = collection(db, 'users', currentUser.uid, 'expenses');
       let q;
+
       const now = new Date();
+      
       if (period === 'month') {
           const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
           const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
@@ -278,15 +293,34 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
           const endOfYear = new Date(now.getFullYear(), 11, 31).toISOString().split('T')[0];
           q = query(expensesRef, where('purchaseDate', '>=', startOfYear), where('purchaseDate', '<=', endOfYear));
       } else {
+          // 'all'
           q = query(expensesRef);
       }
+
       const snapshot = await getDocs(q);
-      if (snapshot.empty) { showToast('Não há lançamentos para apagar neste período.', 'info'); return true; }
+      
+      if (snapshot.empty) {
+        showToast('Não há lançamentos para apagar neste período.', 'info');
+        return true;
+      }
+
       const batch = writeBatch(db);
       let count = 0;
-      snapshot.docs.forEach((doc) => { batch.delete(doc.ref); count++; });
+      
+      snapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+        count++;
+      });
+
       await batch.commit();
-      showToast(`${count} itens excluídos.`, 'success');
+      
+      const messages = {
+          'all': 'TODOS os lançamentos foram apagados.',
+          'month': 'Lançamentos deste mês foram apagados.',
+          'year': 'Lançamentos deste ano foram apagados.'
+      };
+
+      showToast(`${count} itens excluídos. ${messages[period]}`, 'success');
       return true;
     } catch (error) {
       console.error("Erro ao resetar dados:", error);
@@ -306,24 +340,41 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
 
   const isAdmin = userProfile.role && ['admin', 'super_admin', 'operational_admin', 'support_admin'].includes(userProfile.role);
 
+  // Wrapper para as Views com Animação
+  const renderView = useCallback(() => (
+    <Suspense fallback={
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-180px)] text-center text-gray-500">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
+            <p>Carregando...</p>
+        </div>
+    }>
+      {(() => {
+        switch (currentView) {
+          case 'dashboard': return <Dashboard expenses={expenses} isLoading={loadingExpenses} userProfile={userProfile} onManageReminders={onManageReminders} reminders={reminders} onViewAll={() => setCurrentView('entries')} goals={goals} />;
+          case 'entries': return <Entries expenses={expenses} onDeleteExpense={deleteExpense} onEditExpense={(e) => { setExpenseToEdit(e); setIsExpenseModalOpen(true); }} isLoading={loadingExpenses} onAddExpense={async (e, t) => { if(!t) { await addExpenseFirestore(e); } else { setInitialExpenseData(e); setIsExpenseModalOpen(true); } }} onAPISetupError={handleAPISetupError} />;
+          case 'reports': return <Reports expenses={expenses} isLoadingExpenses={loadingExpenses} />;
+          case 'goals': return <Goals goals={goals} savingsGoals={savingsGoals} expenses={expenses} onOpenGoalModal={() => setIsGoalModalOpen(true)} onOpenSavingsModal={() => setIsSavingsModalOpen(true)} onEditGoal={(g) => { setGoalToEdit(g); setIsGoalModalOpen(true); }} onEditSavingsGoal={(s) => { setSavingsGoalToEdit(s); setIsSavingsModalOpen(true); }} onDeleteGoal={deleteGoal} onDeleteSavingsGoal={deleteSavingsGoal} isLoading={loadingGoals} />;
+          case 'profile': return <Profile userProfile={userProfile} handleLogout={handleAppLogout} onManageSubscription={onManageSubscription} onUpdateProfileImage={onUpdateProfileImage} isLoading={loadingUserDoc} onOpenPrivacyPolicy={onOpenGlobalPrivacyPolicy} onOpenTermsOfService={onOpenGlobalTermsOfService} onOpenSupport={onOpenSupport} onOpenAdminPanel={() => setCurrentView('admin')} onResetData={handleResetData} />;
+          case 'admin': return isAdmin ? <AdminPanel currentUser={userProfile} /> : <div className="p-8 text-center text-red-600">Acesso negado.</div>;
+          default: return <Dashboard expenses={expenses} isLoading={loadingExpenses} userProfile={userProfile} onManageReminders={onManageReminders} reminders={reminders} onViewAll={() => setCurrentView('entries')} goals={goals} />;
+        }
+      })()}
+    </Suspense>
+  ), [currentView, expenses, goals, savingsGoals, reminders, handleAppLogout, deleteExpense, deleteGoal, deleteSavingsGoal, onManageSubscription, onManageReminders, onUpdateProfileImage, userProfile, loadingExpenses, loadingGoals, loadingUserDoc, onOpenGlobalPrivacyPolicy, onOpenGlobalTermsOfService, onOpenSupport, handleAPISetupError, addExpenseFirestore, isAdmin, handleResetData]);
+
   const openNewExpenseModal = () => {
       setInitialExpenseData(null); 
       setExpenseToEdit(null); 
       setIsExpenseModalOpen(true);
   };
 
-  const LoadingFallback = (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-180px)] text-center text-gray-500">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
-        <p>Carregando...</p>
-    </div>
-  );
-
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-        {/* SIDEBAR */}
+        {/* SIDEBAR - VISÍVEL APENAS EM DESKTOP (md:flex) */}
         <div className="hidden md:flex flex-col h-full z-20 shadow-xl relative">
             <Sidebar 
+                currentView={currentView} 
+                onSetView={setCurrentView} 
                 onOpenNewExpense={openNewExpenseModal}
                 onLogout={handleAppLogout}
                 userProfile={userProfile}
@@ -332,13 +383,15 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
 
         {/* MAIN CONTENT AREA */}
         <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-            {/* Header */}
+            {/* Header (Top Bar) */}
             <Header 
                 userProfile={userProfile} 
+                currentView={currentView} 
+                onSetView={setCurrentView} 
                 onLogout={handleAppLogout} 
             />
             
-            {/* Alert Banner */}
+            {/* Alert Banner (Trial/Expire) */}
             {expirationWarning?.show && (
                 <div className="absolute z-30 top-20 left-4 right-4 md:left-8 md:right-8 flex justify-center animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-none">
                     <div className={`pointer-events-auto backdrop-blur-md border rounded-2xl shadow-xl p-3 w-full max-w-2xl flex items-center justify-between gap-3 ring-1 ring-black/5 ${isTrialPeriod ? 'bg-indigo-50/95 border-indigo-200 shadow-indigo-500/10' : 'bg-white/95 border-orange-100 shadow-orange-500/10'}`}>
@@ -351,48 +404,37 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
                 </div>
             )}
 
-            {/* Scrollable Main View */}
+            {/* Scrollable Main View com Animação de Transição */}
             <main className={`flex-1 overflow-y-auto pb-24 md:pb-8 w-full px-4 sm:px-6 lg:px-8 custom-scrollbar ${expirationWarning?.show ? 'pt-24' : 'pt-4'}`}>
                 <div className="max-w-7xl mx-auto h-full">
                     <AnimatePresence mode="wait">
                         <motion.div
-                            key={location.pathname}
+                            key={currentView}
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
                             transition={{ duration: 0.25, ease: "easeInOut" }}
                             className="h-full w-full"
                         >
-                            <Suspense fallback={LoadingFallback}>
-                                <Routes>
-                                    <Route path="/" element={<Navigate to="dashboard" replace />} />
-                                    <Route path="dashboard" element={<Dashboard expenses={expenses} isLoading={loadingExpenses} userProfile={userProfile} onManageReminders={onManageReminders} reminders={reminders} onViewAll={() => navigate('lancamentos')} goals={goals} />} />
-                                    <Route path="lancamentos" element={<Entries expenses={expenses} onDeleteExpense={deleteExpense} onEditExpense={(e) => { setExpenseToEdit(e); setIsExpenseModalOpen(true); }} isLoading={loadingExpenses} onAddExpense={async (e, t) => { if(!t) { await addExpenseFirestore(e); } else { setInitialExpenseData(e); setIsExpenseModalOpen(true); } }} onAPISetupError={handleAPISetupError} />} />
-                                    <Route path="relatorios" element={<Reports expenses={expenses} isLoadingExpenses={loadingExpenses} />} />
-                                    <Route path="planejamento" element={<Goals goals={goals} savingsGoals={savingsGoals} expenses={expenses} onOpenGoalModal={() => setIsGoalModalOpen(true)} onOpenSavingsModal={() => setIsSavingsModalOpen(true)} onEditGoal={(g) => { setGoalToEdit(g); setIsGoalModalOpen(true); }} onEditSavingsGoal={(s) => { setSavingsGoalToEdit(s); setIsSavingsModalOpen(true); }} onDeleteGoal={deleteGoal} onDeleteSavingsGoal={deleteSavingsGoal} isLoading={loadingGoals} />} />
-                                    <Route path="perfil" element={<Profile userProfile={userProfile} handleLogout={handleAppLogout} onManageSubscription={onManageSubscription} onUpdateProfileImage={onUpdateProfileImage} isLoading={loadingUserDoc} onOpenPrivacyPolicy={onOpenGlobalPrivacyPolicy} onOpenTermsOfService={onOpenGlobalTermsOfService} onOpenSupport={onOpenSupport} onOpenAdminPanel={() => navigate('admin')} onResetData={handleResetData} />} />
-                                    <Route path="admin" element={isAdmin ? <AdminPanel currentUser={userProfile} /> : <Navigate to="dashboard" />} />
-                                    <Route path="*" element={<Navigate to="dashboard" />} />
-                                </Routes>
-                            </Suspense>
+                            {renderView()}
                         </motion.div>
                     </AnimatePresence>
                 </div>
             </main>
 
-            {/* BOTTOM NAV - Mobile Only */}
-            {location.pathname !== '/app/admin' && (
+            {/* BOTTOM NAV - VISÍVEL APENAS EM MOBILE (md:hidden) E NÃO ADMIN */}
+            {currentView !== 'admin' && (
                 <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] border-t border-gray-200 z-40 safe-area-pb">
                     <div className="grid grid-cols-5 h-16 w-full px-2">
-                        <BottomNavItem icon="space_dashboard" label="Dashboard" to="/app/dashboard" />
-                        <BottomNavItem icon="receipt_long" label="Lançamentos" to="/app/lancamentos" />
+                        <BottomNavItem icon="space_dashboard" label="Dashboard" isActive={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} />
+                        <BottomNavItem icon="receipt_long" label="Lançamentos" isActive={currentView === 'entries'} onClick={() => setCurrentView('entries')} />
                         <div className="relative flex justify-center items-center z-50">
                             <button onClick={openNewExpenseModal} className="absolute -top-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg shadow-blue-600/40 flex items-center justify-center hover:bg-blue-700 transition-all transform active:scale-95 focus:outline-none border-4 border-gray-50">
                                 <PlusIcon className="text-2xl" />
                             </button>
                         </div>
-                        <BottomNavItem icon="track_changes" label="Planejamento" to="/app/planejamento" />
-                        <BottomNavItem icon="bar_chart" label="Relatórios" to="/app/relatorios" />
+                        <BottomNavItem icon="track_changes" label="Planejamento" isActive={currentView === 'goals'} onClick={() => setCurrentView('goals')} />
+                        <BottomNavItem icon="bar_chart" label="Relatórios" isActive={currentView === 'reports'} onClick={() => setCurrentView('reports')} />
                     </div>
                 </nav>
             )}

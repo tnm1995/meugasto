@@ -2,7 +2,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import type { Expense, Omit } from '../types';
-// Importação direta do serviço de IA do Google (Gemini)
+// ALTERAÇÃO: Voltando para o serviço Gemini IA (Mais inteligente que Tesseract)
 import { extractExpenseFromImage } from '../services/geminiService'; 
 import { CameraIcon, XMarkIcon, TrashIcon, PlusIcon, CalculateIcon, TrendingUpIcon } from './Icons';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from '../types';
@@ -47,7 +47,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [subcategories, setSubcategories] = useState<string[]>([]);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null); // Estado para o preview da imagem
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { showToast } = useToast();
@@ -81,10 +81,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
         isRecurring: expenseToEdit.isRecurring,
         paymentMethod: expenseToEdit.paymentMethod,
         recurrenceFrequency: expenseToEdit.recurrenceFrequency,
-        type: expenseToEdit.type || 'expense'
+        type: expenseToEdit.type || 'expense' // Fallback para compatibilidade
       });
       setItems(expenseToEdit.items || []);
-      setPreviewUrl(null);
+      setPreviewUrl(null); // Edição manual geralmente não tem a imagem original persistida nesta versão
     } else if (initialData) {
       setFormData({
         localName: initialData.localName,
@@ -103,6 +103,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
     }
   }, [expenseToEdit, initialData, isOpen, resetForm]);
 
+  // Bloqueia o scroll do corpo da página quando o modal está aberto
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -133,6 +134,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
     }
   }, [formData.category, formData.type, activeCategories]);
 
+  // Se mudar o tipo (Receita/Despesa), reseta a categoria
   const handleTypeChange = (newType: 'expense' | 'income') => {
       setFormData(prev => ({ 
           ...prev, 
@@ -145,6 +147,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Cria URL temporária para preview
       const objectUrl = URL.createObjectURL(file);
       setPreviewUrl(objectUrl);
 
@@ -153,7 +156,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
       try {
         const base64Image = await fileToBase64(file);
         
-        // Chamada ao Gemini Service
+        // USANDO GEMINI SERVICE AGORA
         const extractedData = await extractExpenseFromImage(base64Image);
         
         let toastMessages = [];
@@ -202,7 +205,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
             subcategory: finalSubcategory,
             isRecurring: false,
             paymentMethod: finalPaymentMethod,
-            type: 'expense'
+            type: 'expense' // Scanner é primariamente para despesas
         });
         setItems(Array.isArray(extractedData.items) ? extractedData.items : []);
 
@@ -217,6 +220,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
       } catch (e) {
         const err = e as Error;
         
+        // Verifica se é erro de API não habilitada
         if (err.message === 'API_NOT_ENABLED') {
             onAPISetupError();
             setIsLoading(false);
@@ -227,7 +231,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
         const errorMessage = err.message;
         setError(errorMessage);
         showToast(errorMessage, 'error');
-        setPreviewUrl(null);
+        setPreviewUrl(null); // Limpa preview se falhar
       } finally {
         setIsLoading(false);
         if (fileInputRef.current) {
@@ -245,6 +249,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
       setPreviewUrl(null);
   };
 
+  // --- Manipulação de Itens ---
   const handleItemChange = (index: number, field: 'name' | 'price', value: string) => {
     const newItems = [...items];
     if (field === 'name') {
@@ -352,6 +357,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
         <div className="p-6 overflow-y-auto">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-64" role="status" aria-live="polite">
+                {/* Mostra preview enevoado enquanto carrega, se houver */}
                 {previewUrl && (
                     <div className="absolute inset-0 z-0 opacity-20 bg-cover bg-center filter blur-sm" style={{ backgroundImage: `url(${previewUrl})` }}></div>
                 )}
@@ -365,6 +371,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
             </div>
           ) : (
             <>
+              {/* TOGGLE TIPO DE LANÇAMENTO */}
               <div className="flex bg-gray-100 p-1 rounded-2xl mb-6 shadow-inner">
                   <button 
                     type="button"
@@ -384,6 +391,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
                   </button>
               </div>
 
+              {/* ÁREA DE PREVIEW DA IMAGEM */}
               {previewUrl && (
                   <div className="mb-6 relative group animate-fade-in">
                       <div className="w-full h-48 bg-gray-100 rounded-2xl overflow-hidden border border-gray-200 relative">
@@ -404,6 +412,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
                   </div>
               )}
 
+              {/* BOTÃO DE SCAN (Só aparece se não for edição e não tiver preview carregado) */}
               {!expenseToEdit && !initialData && !previewUrl && formData.type === 'expense' && (
                 <div className="mb-6">
                     <button onClick={handleScanClick} className="w-full flex items-center justify-center gap-3 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 text-blue-700 font-bold rounded-2xl hover:from-blue-100 hover:to-indigo-100 transition-all shadow-sm hover:shadow-md group active:scale-[0.98]" aria-label="Escanear recibo com a câmera">
@@ -432,6 +441,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
                     </div>
                 </div>
 
+                {/* Seção de Itens da Nota */}
                 {(formData.type === 'expense' || items.length > 0) && (
                   <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
                     <div className="flex justify-between items-center mb-3">

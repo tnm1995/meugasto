@@ -1,26 +1,27 @@
+
 import React from 'react';
-import type { User } from '../types';
-import { LogoutIcon, WalletIcon } from './Icons'; 
-import { useNavigate, useLocation } from 'react-router-dom';
+import type { User, View } from '../types';
+import { LogoutIcon, WalletIcon } from './Icons'; // Importa ícones
 
 interface HeaderProps {
   userProfile: User; 
+  currentView: View;
+  onSetView: (view: View) => void;
   onLogout: () => void; 
 }
 
-export const Header: React.FC<HeaderProps> = ({ userProfile, onLogout }) => {
-  const navigate = useNavigate();
-  const location = useLocation();
+export const Header: React.FC<HeaderProps> = ({ userProfile, currentView, onSetView, onLogout }) => {
 
   const getTitle = () => {
-    const path = location.pathname;
-    if (path.includes('dashboard')) return 'Dashboard';
-    if (path.includes('lancamentos')) return 'Lançamentos';
-    if (path.includes('relatorios')) return 'Relatórios';
-    if (path.includes('perfil')) return 'Perfil';
-    if (path.includes('planejamento')) return 'Planejamento';
-    if (path.includes('admin')) return 'Administração';
-    return 'MeuGasto';
+    switch (currentView) {
+      case 'dashboard': return 'Dashboard';
+      case 'entries': return 'Lançamentos';
+      case 'reports': return 'Relatórios';
+      case 'profile': return 'Perfil';
+      case 'goals': return 'Planejamento';
+      case 'admin': return 'Administração';
+      default: return 'MeuGasto';
+    }
   };
 
   return (
@@ -29,7 +30,7 @@ export const Header: React.FC<HeaderProps> = ({ userProfile, onLogout }) => {
         <div className="flex items-center gap-4">
              {/* Logo visível APENAS no mobile (md:hidden) */}
              <button 
-              onClick={() => navigate('/app/dashboard')} 
+              onClick={() => onSetView('dashboard')} 
               className="text-2xl font-bold text-gray-800 mr-4 flex-shrink-0 focus:outline-none md:hidden flex items-center gap-2"
               aria-label="MeuGasto - Voltar para o Dashboard"
             >
@@ -47,10 +48,15 @@ export const Header: React.FC<HeaderProps> = ({ userProfile, onLogout }) => {
 
         {/* Section on the right for Profile and Logout */}
         <div className="flex items-center space-x-4">
-          <button onClick={() => navigate('/app/perfil')} className="w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden border-2 border-gray-200 hover:border-blue-500 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex-shrink-0 aspect-square" aria-label="Ver perfil">
+          {/* Título removido no mobile conforme solicitado */}
+          
+          <button onClick={() => onSetView('profile')} className="w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden border-2 border-gray-200 hover:border-blue-500 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex-shrink-0 aspect-square" aria-label="Ver perfil">
             <img src={userProfile.profileImage} alt="Foto de Perfil" className="w-full h-full object-cover" />
           </button>
 
+          {/* Logout button hidden on desktop sidebar layout if preferred, or kept here. 
+              Since Sidebar has logout, we can hide this on desktop or keep as secondary. 
+              Let's keep it visible on mobile only since Sidebar covers desktop. */}
           <button 
             onClick={onLogout} 
             className="flex md:hidden items-center text-red-600 hover:text-red-700 text-sm font-medium px-2 py-1 rounded-lg hover:bg-red-50 transition-colors"
