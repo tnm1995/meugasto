@@ -13,7 +13,8 @@ import {
   AdminPanelSettingsIcon, 
   TrashIcon, 
   CalendarTodayIcon, 
-  DateRangeIcon
+  DateRangeIcon,
+  CategoryIcon
 } from './Icons'; 
 import { DEFAULT_PROFILE_IMAGE, getLevelInfo } from '../types'; 
 import { useToast } from '../contexts/ToastContext'; 
@@ -29,6 +30,7 @@ interface ProfileProps {
   onOpenSupport: () => void;
   onOpenAdminPanel: () => void;
   onResetData: (period: 'all' | 'month' | 'year') => Promise<boolean>;
+  onManageCategories: () => void;
 }
 
 const compressImage = (file: File, maxWidth: number, maxHeight: number, quality: number, mimeType: string = 'image/jpeg'): Promise<string> => {
@@ -100,7 +102,8 @@ export const Profile: React.FC<ProfileProps> = ({
   onOpenTermsOfService,
   onOpenSupport,
   onOpenAdminPanel,
-  onResetData
+  onResetData,
+  onManageCategories
 }) => {
   const [fileInputKey, setFileInputKey] = useState(Date.now()); 
   const { showToast } = useToast(); 
@@ -239,6 +242,13 @@ export const Profile: React.FC<ProfileProps> = ({
                     )}
 
                     <section className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden divide-y divide-gray-50">
+                        <SettingItem 
+                        icon={<CategoryIcon />} 
+                        label="Categorias" 
+                        sublabel="Personalizar Gastos e Ganhos"
+                        color="bg-blue-500" 
+                        onClick={onManageCategories} 
+                        />
                         <SettingItem 
                         icon={<SupportAgentIcon />} 
                         label="Suporte Especializado" 
