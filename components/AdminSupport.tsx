@@ -47,7 +47,7 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
     const [searchTerm, setSearchTerm] = useState('');
     
     // Typing Indicators
-    const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const typingTimeoutRef = useRef<any>(null);
     
     // Ticket Details State
     const [internalNote, setInternalNote] = useState('');
@@ -101,6 +101,19 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
 
         return () => unsubscribe();
     }, [selectedTicketId]);
+
+    // 3. Auto-reset Unread Count (Lógica Adicionada)
+    // Monitora o ticket selecionado e a lista de tickets. Se houver mensagens não lidas no ticket aberto, zera.
+    useEffect(() => {
+        if (selectedTicketId) {
+            const currentTicket = tickets.find(t => t.id === selectedTicketId);
+            if (currentTicket && currentTicket.unreadCount > 0) {
+                const ticketRef = doc(db, 'tickets', selectedTicketId);
+                // Atualiza no banco sem bloquear a UI
+                updateDoc(ticketRef, { unreadCount: 0 }).catch(err => console.error("Erro ao zerar contador:", err));
+            }
+        }
+    }, [selectedTicketId, tickets]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setReplyText(e.target.value);
