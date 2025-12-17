@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -15,8 +14,8 @@ import {
   PlusIcon,
   MoreVertIcon,
   IosShareIcon,
-  ShieldCheckIcon,
-  LockIcon,
+  ShieldCheckIcon, 
+  LockIcon, 
   VisibilityOffIcon,
   XMarkIcon
 } from './Icons';
@@ -845,7 +844,7 @@ const HowItWorks = () => {
         </div>
 
         <motion.div 
-          className="grid md:grid-cols-3 gap-8 relative"
+          className="grid md:grid-3 gap-8 relative"
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
@@ -1255,7 +1254,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, scrollTarget,
             <div className="flex items-center gap-4">
               <button 
                 onClick={() => onStart('login')}
-                className="text-gray-600 font-medium hover:text-blue-600 transition-colors text-sm hidden sm:block"
+                className="text-gray-600 font-medium hover:text-blue-600 transition-colors text-sm"
               >
                 Entrar
               </button>
