@@ -83,6 +83,7 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
         }
 
         setLoadingMessages(true);
+        // Garante que o caminho é o mesmo usado pelo usuário: users/{userId}/support_messages
         const messagesRef = collection(db, 'users', selectedTicketId, 'support_messages');
         const q = query(messagesRef, orderBy('timestamp', 'asc'));
 
@@ -103,13 +104,11 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
     }, [selectedTicketId]);
 
     // 3. Auto-reset Unread Count (Lógica Adicionada)
-    // Monitora o ticket selecionado e a lista de tickets. Se houver mensagens não lidas no ticket aberto, zera.
     useEffect(() => {
         if (selectedTicketId) {
             const currentTicket = tickets.find(t => t.id === selectedTicketId);
             if (currentTicket && currentTicket.unreadCount > 0) {
                 const ticketRef = doc(db, 'tickets', selectedTicketId);
-                // Atualiza no banco sem bloquear a UI
                 updateDoc(ticketRef, { unreadCount: 0 }).catch(err => console.error("Erro ao zerar contador:", err));
             }
         }
@@ -167,12 +166,18 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
     };
 
     const sendMessage = async (text?: string, attachmentUrl?: string, attachmentType?: 'image' | 'file') => {
-        if (!selectedTicketId) return;
+        if (!selectedTicketId) {
+            showToast('Selecione um ticket primeiro.', 'error');
+            return;
+        }
         const msgText = text !== undefined ? text : replyText.trim();
         if (!msgText && !attachmentUrl) return;
 
         try {
+            // Referência direta à coleção no Firestore
             const messagesRef = collection(db, 'users', selectedTicketId, 'support_messages');
+            
+            // Adiciona mensagem
             await addDoc(messagesRef, {
                 text: msgText,
                 sender: 'support',
@@ -182,6 +187,7 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
                 attachmentType: attachmentType || undefined
             });
 
+            // Atualiza ticket
             const ticketRef = doc(db, 'tickets', selectedTicketId);
             await updateDoc(ticketRef, {
                 lastMessage: attachmentUrl ? (msgText || 'Enviou um anexo') : msgText,
@@ -197,8 +203,8 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
                 if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
             }
         } catch (error) {
-            console.error(error);
-            showToast('Erro ao enviar mensagem.', 'error');
+            console.error("Error sending message:", error);
+            showToast('Erro ao enviar mensagem. Verifique permissões.', 'error');
         }
     };
 

@@ -1,5 +1,4 @@
 
-
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '../services/firebaseService';
 import {
@@ -53,7 +52,8 @@ export const useFirestoreCollection = <T extends DocumentData>(
 
     const q = query(colRef, ...queryConstraints);
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    // includeMetadataChanges: true é crucial para mostrar escritas locais imediatamente
+    const unsubscribe = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
       const fetchedData: DocumentWithId<T>[] = [];
       snapshot.forEach((doc) => {
         fetchedData.push({ id: doc.id, ...(doc.data() as T) });

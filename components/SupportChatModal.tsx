@@ -93,7 +93,10 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
   } = useFirestoreCollection<ChatMessage>('support_messages', currentUser?.uid || '', queryConstraints);
 
   const messages = useMemo(() => {
+    // Se não tem timestamp de limpeza, mostra tudo
     if (!currentUser?.lastChatClearedAt) return allMessages;
+
+    // Normaliza timestamp de limpeza
     let clearTime = 0;
     if (currentUser.lastChatClearedAt.toMillis) {
         clearTime = currentUser.lastChatClearedAt.toMillis();
@@ -104,12 +107,15 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
     }
 
     return allMessages.filter(msg => {
+        // CORREÇÃO CRÍTICA: Mensagens locais recém-criadas têm timestamp null. 
+        // Elas devem ser exibidas imediatamente.
+        if (!msg.timestamp) return true;
+
         let msgTime = 0;
         if (msg.timestamp?.toMillis) msgTime = msg.timestamp.toMillis();
         else if (msg.timestamp?.seconds) msgTime = msg.timestamp.seconds * 1000;
         else if (msg.timestamp instanceof Date) msgTime = msg.timestamp.getTime();
-        else if (!msg.timestamp) msgTime = Date.now();
-
+        
         return msgTime > clearTime;
     });
   }, [allMessages, currentUser?.lastChatClearedAt]);
@@ -174,8 +180,7 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
       const file = e.target.files?.[0];
       if (!file || !currentUser?.uid) return;
 
-      // Validação de Tamanho (Máximo 5MB)
-      const MAX_SIZE = 5 * 1024 * 1024; // 5MB em bytes
+      const MAX_SIZE = 5 * 1024 * 1024; // 5MB
       if (file.size > MAX_SIZE) {
           showToast("O arquivo é muito grande. O limite máximo é 5MB.", "error");
           if (fileInputRef.current) fileInputRef.current.value = '';
@@ -216,8 +221,10 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
           attachmentType: attachmentType || undefined
         };
   
+        // Adiciona mensagem à coleção do usuário
         await addDocument(messageData);
   
+        // Atualiza ou Cria o Ticket de Suporte (para o Admin ver)
         const ticketRef = doc(db, 'tickets', currentUser.uid);
         const ticketSnap = await getDoc(ticketRef);
   
@@ -241,6 +248,10 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
             if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
             if (textareaRef.current) textareaRef.current.style.height = 'auto';
         }
+        
+        // Rola para baixo após enviar
+        setTimeout(scrollToBottom, 100);
+
       } catch (error) {
         console.error("Error sending message:", error);
         showToast("Erro ao enviar mensagem.", 'error');
@@ -373,10 +384,14 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
       
       return messages.map((msg, index) => {
           let dateObj = new Date();
+          // Tratamento robusto de timestamp
           if (msg.timestamp) {
              if (typeof msg.timestamp.toMillis === 'function') dateObj = new Date(msg.timestamp.toMillis());
              else if (msg.timestamp?.seconds) dateObj = new Date(msg.timestamp.seconds * 1000);
              else if (msg.timestamp instanceof Date) dateObj = msg.timestamp;
+          } else {
+             // Se timestamp é null (escrita local pendente), usa data atual
+             dateObj = new Date();
           }
           
           const dateStr = formatDateSeparator(dateObj);
@@ -386,14 +401,16 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
           const isUser = msg.sender === 'user';
           
           const nextMsg = messages[index + 1];
-          const isLastInGroup = !nextMsg || nextMsg.sender !== msg.sender || (nextMsg.timestamp && Math.abs( (typeof nextMsg.timestamp.toMillis === 'function' ? nextMsg.timestamp.toMillis() : (nextMsg.timestamp?.seconds ? nextMsg.timestamp.seconds * 1000 : (nextMsg.timestamp as any).getTime())) - dateObj.getTime()) > 60000 * 5); 
+          // Se não houver próxima mensagem ou o remetente mudar ou o tempo entre elas for grande (>5min)
+          const isLastInGroup = !nextMsg || nextMsg.sender !== msg.sender || 
+                                (nextMsg.timestamp && Math.abs( (typeof nextMsg.timestamp?.toMillis === 'function' ? nextMsg.timestamp.toMillis() : (nextMsg.timestamp?.seconds ? nextMsg.timestamp.seconds * 1000 : (nextMsg.timestamp as any)?.getTime() || Date.now())) - dateObj.getTime()) > 60000 * 5); 
           
           let borderRadiusClass = 'rounded-2xl';
           if (isUser) borderRadiusClass = isLastInGroup ? 'rounded-2xl rounded-tr-sm' : 'rounded-2xl rounded-tr-sm rounded-br-sm mb-1';
           else borderRadiusClass = isLastInGroup ? 'rounded-2xl rounded-tl-sm' : 'rounded-2xl rounded-tl-sm rounded-bl-sm mb-1';
 
           return (
-              <React.Fragment key={msg.id}>
+              <React.Fragment key={msg.id || index}>
                   {showDateSeparator && (
                       <div className="flex justify-center my-4">
                           <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">{dateStr}</span>
@@ -422,7 +439,15 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
                               )}
                               {msg.text}
                           </div>
-                          {isLastInGroup && <span className={`text-[10px] mt-1 px-1 ${isUser ? 'text-gray-400 text-right' : 'text-gray-400 text-left'}`}>{timeString}</span>}
+                          {isLastInGroup && (
+                              <div className="flex items-center gap-1 mt-1 px-1">
+                                <span className={`text-[10px] ${isUser ? 'text-gray-400 text-right' : 'text-gray-400 text-left'}`}>{timeString}</span>
+                                {/* Indicador de pendente (só para user) */}
+                                {isUser && !msg.timestamp && (
+                                    <span className="text-[9px] text-gray-400 italic">Enviando...</span>
+                                )}
+                              </div>
+                          )}
                       </div>
                   </div>
               </React.Fragment>
