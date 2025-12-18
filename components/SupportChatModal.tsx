@@ -212,14 +212,17 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ isOpen, onCl
       if (!msgText && !attachmentUrl) return;
 
       try {
-        const messageData: Omit<ChatMessage, 'id'> = {
+        const messageData: any = {
           text: msgText,
           sender: 'user',
           timestamp: serverTimestamp(),
-          read: false,
-          attachmentUrl: attachmentUrl || undefined,
-          attachmentType: attachmentType || undefined
+          read: false
         };
+
+        if (attachmentUrl) {
+            messageData.attachmentUrl = attachmentUrl;
+            messageData.attachmentType = attachmentType || 'file';
+        }
   
         // Adiciona mensagem à coleção do usuário
         await addDocument(messageData);
