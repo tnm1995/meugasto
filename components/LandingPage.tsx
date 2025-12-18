@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -816,9 +817,9 @@ const HowItWorks = () => {
   };
 
   const lightVariants = {
-    hidden: { left: "16%", opacity: 0 },
+    hidden: { left: "16.66%", opacity: 0 },
     visible: { 
-      left: ["16%", "50%", "50%", "84%"],
+      left: ["16.66%", "50%", "50%", "83.33%"],
       opacity: [0, 1, 1, 0],
       transition: { 
         duration: 2,
@@ -844,24 +845,26 @@ const HowItWorks = () => {
         </div>
 
         <motion.div 
-          className="grid md:grid-3 gap-8 relative"
+          className="grid grid-cols-1 md:grid-cols-3 gap-12 relative"
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-50px" }}
         >
-          <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-1 bg-gray-100 rounded-full z-0"></div>
+          {/* Static gray line (background) */}
+          <div className="hidden md:block absolute top-12 left-[16.66%] right-[16.66%] h-1 bg-gray-100 rounded-full z-0 transform -translate-y-1/2"></div>
 
+          {/* Animated gradient line (foreground) */}
           <motion.div 
-            className="hidden md:block absolute top-12 left-[16%] right-[16%] h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500 z-0 origin-left rounded-full"
+            className="hidden md:block absolute top-12 left-[16.66%] right-[16.66%] h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500 z-0 origin-left rounded-full transform -translate-y-1/2"
             variants={lineVariants}
           ></motion.div>
 
+          {/* Traveling light particle */}
           <motion.div
-             className="hidden md:block absolute top-[44px] w-4 h-4 bg-white border-[3px] border-blue-600 rounded-full z-10 shrink-0 aspect-square"
+             className="hidden md:block absolute top-12 w-4 h-4 bg-white border-[3px] border-blue-600 rounded-full z-10 shrink-0 aspect-square transform -translate-y-1/2"
              style={{ 
-               boxShadow: "0 0 15px 2px rgba(37, 99, 235, 0.6)",
-               transform: "translateY(-50%)"
+               boxShadow: "0 0 15px 2px rgba(37, 99, 235, 0.6)"
              }}
              variants={lightVariants}
           />
