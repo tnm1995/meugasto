@@ -4,14 +4,13 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
   // Carrega as variáveis de ambiente baseadas no modo (ex: .env, .env.production)
-  const env = loadEnv(mode, process.cwd(), '');
+  const env = loadEnv(mode, (process as any).cwd(), '');
   
   return {
     plugins: [react()],
     define: {
       // Define process.env.API_KEY globalmente para ser substituído em tempo de build
       // Prioriza VITE_GEMINI_API_KEY, tenta API_KEY, ou usa string vazia.
-      // JSON.stringify garante que undefined vire "" e não quebre a sintaxe JS.
       'process.env.API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY || env.API_KEY || '')
     },
     build: {

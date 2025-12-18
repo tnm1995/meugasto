@@ -4,8 +4,6 @@ import type { Expense, BankTransaction, Omit } from '../types';
 import { CATEGORIES } from '../types';
 
 // Initialize the Gemini API client directly with the environment variable
-// adhering to the requirement: const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-// NOTE: process.env.API_KEY is replaced by Vite at build time via define in vite.config.ts.
 const envApiKey = process.env.API_KEY;
 const apiKey = (envApiKey && envApiKey.trim() !== '') ? envApiKey : 'dummy-key';
 const ai = new GoogleGenAI({ apiKey: apiKey });
@@ -30,23 +28,23 @@ const expenseResponseSchema = {
       items: {
         type: Type.OBJECT,
         properties: {
-          name: { type: Type.STRING, description: "Nome limpo do produto (sem códigos iniciais como 001, 1234, etc)." },
-          price: { type: Type.NUMBER, description: "Preço total do item (quantidade x valor unitário)." },
+          name: { type: Type.STRING, description: "Nome limpo do produto (sem códigos iniciais)." },
+          price: { type: Type.NUMBER, description: "Preço total do item." },
         },
         required: ['name', 'price'],
       },
-      description: "Lista exata de todos os produtos comprados listados no cupom."
+      description: "Lista de produtos comprados."
     },
     total: { type: Type.NUMBER, description: "Valor total final da nota fiscal." },
     category: { 
       type: Type.STRING, 
-      description: `A Categoria Principal da despesa baseada na MAIORIA dos itens e no TIPO DE ESTABELECIMENTO.` 
+      description: `A Categoria Principal da despesa.` 
     },
     subcategory: { 
       type: Type.STRING, 
       description: `A Subcategoria mais específica.` 
     },
-    paymentMethod: { type: Type.STRING, description: "Método de pagamento identificado (Crédito, Débito, Pix, Dinheiro, VR, etc)." }
+    paymentMethod: { type: Type.STRING, description: "Forma de pagamento (Crédito, Débito, Pix, Dinheiro)." }
   },
   required: ['localName', 'purchaseDate', 'total', 'category', 'subcategory', 'items'],
 };
@@ -68,38 +66,25 @@ const bankTransactionResponseSchema = {
 export const extractExpenseFromImage = async (base64Image: string): Promise<Omit<Expense, 'id'>> => {
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.5-flash',
       contents: { parts: [
         { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
-        { text: `Você é um especialista em OCR e Contabilidade Brasileira.
+        { text: `Você é uma IA especializada em leitura de cupons fiscais brasileiros (NFC-e, SAT).
         
-        Analise esta imagem de cupom fiscal (NFC-e, SAT, Cupom) e extraia os dados.
+        Analise a imagem e extraia os dados com precisão:
 
-        1. IDENTIFICAÇÃO DO LOCAL (CRÍTICO):
-           - Encontre o Nome Fantasia da loja no topo.
-           - Use o NOME DA LOJA para definir o contexto.
-           - Exemplo: "Centro de Jardinagem Junkes" -> O contexto é "Moradia" -> "Jardinagem / Plantas", mesmo que o item seja "Pimenta" (provavelmente uma muda).
-           - Exemplo: "Loja dos Descontos" -> Analise os itens para decidir (provavelmente "Alimentação" -> "Supermercado" ou "Compras").
-
-        2. EXTRAÇÃO DE ITENS:
-           - Liste TODOS os itens.
-           - Ignore códigos numéricos no início (ex: "001 PIMENTA" -> "PIMENTA").
-           - Preço deve ser o valor TOTAL do item.
-
-        3. CATEGORIZAÇÃO INTELIGENTE:
-           Use esta lista como referência estrita:
+        1. LOCAL: Nome fantasia do estabelecimento.
+        2. DATA: Data da emissão (Converta para YYYY-MM-DD).
+        3. ITENS: Liste os itens comprados com seus valores.
+        4. CATEGORIA: Classifique baseado nesta lista:
            ${categoriesContext}
-
-           Regras:
-           - Priorize a categoria do ESTABELECIMENTO. Se for um posto de gasolina, é "Transporte" -> "Combustível", mesmo se comprou água.
-           - Se for Restaurante/Lanchonete, use "Alimentação" -> "Restaurante / Almoço".
-
-        4. DADOS GERAIS:
-           - Data: Formato YYYY-MM-DD.
-           - Total: Valor final pago.
-           - Pagamento: Crédito, Débito, Pix, Dinheiro, etc.
+           
+           *Contexto:* Se for posto de gasolina, category='Transporte', subcategory='Combustível'. Se for mercado, 'Alimentação'.
         
-        Retorne APENAS o JSON válido conforme o schema.` }
+        5. TOTAL: O valor final pago.
+        6. PAGAMENTO: Crédito, Débito, Pix, Dinheiro, etc.
+
+        Retorne APENAS o JSON conforme o schema.` }
       ] },
       config: {
         responseMimeType: 'application/json',
@@ -114,47 +99,45 @@ export const extractExpenseFromImage = async (base64Image: string): Promise<Omit
     const cleanedText = cleanJsonString(response.text);
     const parsedData = JSON.parse(cleanedText);
     
-    // Validação e Fallback para Categorias
+    // Normalização e Fallback de Categorias
     let finalCategory = parsedData.category;
     let finalSubcategory = parsedData.subcategory;
 
-    // Normalização básica se a IA alucinar categorias fora da lista
     if (!CATEGORIES[finalCategory]) {
-        // Tenta encontrar se a subcategoria existe em alguma categoria principal
-        const foundEntry = Object.entries(CATEGORIES).find(([_, subs]) => subs.includes(finalSubcategory));
-        if (foundEntry) {
-            finalCategory = foundEntry[0];
+        // Tenta inferir pelo nome do local se a categoria vier errada
+        const local = (parsedData.localName || '').toLowerCase();
+        if (local.includes('supermercado') || local.includes('atacad') || local.includes('market')) {
+            finalCategory = 'Alimentação';
+            finalSubcategory = 'Supermercado (Geral)';
+        } else if (local.includes('posto') || local.includes('combustivel') || local.includes('auto')) {
+            finalCategory = 'Transporte';
+            finalSubcategory = 'Combustível';
+        } else if (local.includes('farma') || local.includes('drogaria')) {
+            finalCategory = 'Saúde e Higiene';
+            finalSubcategory = 'Farmácia / Medicamentos';
         } else {
-            // Fallback inteligente baseado no nome do local se possível, ou Outros
-            const local = (parsedData.localName || '').toLowerCase();
-            if (local.includes('supermercado') || local.includes('atacad') || local.includes('market')) {
-                finalCategory = 'Alimentação';
-                finalSubcategory = 'Supermercado (Geral)';
-            } else if (local.includes('jardin') || local.includes('flor')) {
-                finalCategory = 'Moradia';
-                finalSubcategory = 'Jardinagem / Plantas';
-            } else if (local.includes('farma') || local.includes('drogaria')) {
-                finalCategory = 'Saúde e Higiene';
-                finalSubcategory = 'Farmácia / Medicamentos';
-            } else if (local.includes('posto') || local.includes('combustivel')) {
-                finalCategory = 'Transporte';
-                finalSubcategory = 'Combustível';
-            } else {
-                finalCategory = 'Outros';
-                finalSubcategory = 'Não Identificado';
-            }
+            finalCategory = 'Outros';
+            finalSubcategory = 'Não Identificado';
         }
     } else {
-        // Se a categoria existe, verifica se a subcategoria é válida para ela
         if (!CATEGORIES[finalCategory].includes(finalSubcategory)) {
-            // Se não for, usa a primeira subcategoria disponível (geralmente a mais genérica)
             finalSubcategory = CATEGORIES[finalCategory][0] || 'Outros';
         }
     }
     
+    // Normaliza a data se vier DD/MM/YYYY por engano
+    let finalDate = parsedData.purchaseDate;
+    if (finalDate.includes('/')) {
+       const parts = finalDate.split('/');
+       if (parts.length === 3) {
+           // Assume DD/MM/YYYY e converte para YYYY-MM-DD
+           finalDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+       }
+    }
+    
     return {
         localName: parsedData.localName || 'Despesa Identificada',
-        purchaseDate: parsedData.purchaseDate || new Date().toISOString().split('T')[0],
+        purchaseDate: finalDate || new Date().toISOString().split('T')[0],
         items: Array.isArray(parsedData.items) ? parsedData.items : [],
         total: typeof parsedData.total === 'number' ? parsedData.total : 0,
         category: finalCategory,
@@ -165,22 +148,14 @@ export const extractExpenseFromImage = async (base64Image: string): Promise<Omit
     };
 
   } catch (error: any) {
-    console.error('Gemini Error Full:', JSON.stringify(error, null, 2));
-    
+    console.error('Gemini Error:', error);
     const errorMessage = error.message || '';
     
-    // Identifica erro de API não habilitada ou chave inválida
-    if (
-        errorMessage.includes('API key not valid') || 
-        errorMessage.includes('Generative Language API has not been used') || 
-        error.status === 403 || 
-        error.status === 400 || // API key not valid is often 400
-        errorMessage.includes('PERMISSION_DENIED')
-    ) {
+    if (errorMessage.includes('API key') || errorMessage.includes('403') || errorMessage.includes('PERMISSION_DENIED')) {
         throw new Error('API_NOT_ENABLED');
     }
 
-    throw new Error(`Erro ao processar imagem: ${errorMessage || 'Tente novamente.'}`);
+    throw new Error(`Erro ao ler nota: ${errorMessage}`);
   }
 };
 
@@ -188,16 +163,14 @@ export const extractTransactionsFromPdfText = async (pdfText: string): Promise<B
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: { parts: [{ text: `Analise o texto deste extrato bancário e extraia as transações financeiras em JSON. Ignore saldos e cabeçalhos. Texto: ${pdfText}` }] },
+      contents: { parts: [{ text: `Extraia transações deste extrato bancário para JSON (date YYYY-MM-DD, description, amount number, type DEBIT/CREDIT). Texto: ${pdfText}` }] },
       config: {
         responseMimeType: 'application/json',
         responseSchema: bankTransactionResponseSchema,
       },
     });
     
-    if (!response.text) {
-        return [];
-    }
+    if (!response.text) return [];
 
     const cleanedText = cleanJsonString(response.text);
     const parsedData = JSON.parse(cleanedText);
@@ -205,20 +178,7 @@ export const extractTransactionsFromPdfText = async (pdfText: string): Promise<B
 
   } catch (error: any) {
     console.error('Gemini PDF Error:', error);
-    
-    const errorMessage = error.message || '';
-
-    // Identifica erro de API não habilitada
-    if (
-        errorMessage.includes('API key not valid') ||
-        errorMessage.includes('Generative Language API has not been used') || 
-        error.status === 403 || 
-        error.status === 400 ||
-        errorMessage.includes('PERMISSION_DENIED')
-    ) {
-        throw new Error('API_NOT_ENABLED');
-    }
-
+    if (error.message?.includes('API key') || error.status === 403) throw new Error('API_NOT_ENABLED');
     throw new Error('Erro ao processar PDF.');
   }
 };
