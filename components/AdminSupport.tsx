@@ -183,8 +183,8 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
                 sender: 'support',
                 timestamp: serverTimestamp(),
                 read: false,
-                attachmentUrl: attachmentUrl || undefined,
-                attachmentType: attachmentType || undefined
+                attachmentUrl: attachmentUrl || null,
+                attachmentType: attachmentType || null
             });
 
             // Atualiza ticket
