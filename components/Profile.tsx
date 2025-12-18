@@ -197,12 +197,12 @@ export const Profile: React.FC<ProfileProps> = ({
                         <div className="flex items-center justify-center sm:justify-start gap-2">
                             <PremiumIcon className={isPremium ? 'text-yellow-400 text-2xl' : 'text-blue-600 text-2xl'} />
                             <h3 className={`font-black text-xl ${!isPremium ? 'text-gray-800' : ''}`}>
-                            {isPremium ? 'Membro Premium Ativo' : 'Evolua para o Premium'}
+                            {isPremium ? 'Assinatura Premium' : 'Evolua para o Premium'}
                             </h3>
                         </div>
                         <p className={`text-sm font-medium leading-relaxed max-w-md ${isPremium ? 'text-blue-100' : 'text-gray-500'}`}>
                             {isPremium 
-                            ? `Seu plano está ativo e seguro. Renovação em ${new Date(userProfile.subscriptionExpiresAt!).toLocaleDateString('pt-BR')}. Aproveite todos os recursos ilimitados.`
+                            ? `Sua assinatura vence em ${new Date(userProfile.subscriptionExpiresAt!).toLocaleDateString('pt-BR')}. Garanta mais tempo de acesso e evite interrupções nos seus relatórios.`
                             : 'Libere leitura automática de notas com IA, relatórios de auditoria profunda e backup ilimitado em tempo real.'}
                         </p>
                     </div>
@@ -210,7 +210,7 @@ export const Profile: React.FC<ProfileProps> = ({
                     onClick={onManageSubscription}
                     className={`px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-md transition-all active:scale-95 whitespace-nowrap min-w-[160px] ${isPremium ? 'bg-white text-blue-700 hover:bg-blue-50' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
                     >
-                    {isPremium ? 'Gerenciar Plano' : 'Ver Planos'}
+                    {isPremium ? 'Renovar Agora' : 'Ver Planos'}
                     </button>
                 </div>
                 </motion.div>
