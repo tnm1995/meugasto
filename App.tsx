@@ -47,6 +47,20 @@ const App: React.FC = () => {
     }
   };
 
+  // Helper para verificar expiração de forma síncrona
+  const checkIsExpired = (userData: User | null): boolean => {
+    if (!userData) return false;
+    // Admins não expiram
+    if (['admin', 'super_admin', 'operational_admin', 'support_admin'].includes(userData.role)) return false;
+    if (!userData.subscriptionExpiresAt) return false;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); 
+    const [year, month, day] = userData.subscriptionExpiresAt.split('-').map(Number);
+    const expiryDate = new Date(year, month - 1, day);
+    return expiryDate < today;
+  };
+
   useEffect(() => {
     // Só atualiza presença se estivermos no app e o documento do usuário REALMENTE existir (evita erro 404)
     if (appState !== 'app' || !currentUser?.uid || !currentUser?.createdAt) return;
@@ -102,7 +116,12 @@ const App: React.FC = () => {
             setAppState('landing');
         } else if (['/dashboard', '/lancamentos', '/relatorios', '/perfil', '/planejamento', '/admin'].includes(currentPath)) {
             if (currentUser) {
-                setAppState('app');
+                // CORREÇÃO: Verifica expiração antes de forçar o estado 'app'
+                if (checkIsExpired(currentUser)) {
+                    setAppState('expired');
+                } else {
+                    setAppState('app');
+                }
             }
         }
     };
@@ -154,20 +173,26 @@ const App: React.FC = () => {
             return;
         }
 
-        if (userData.role !== 'admin' && userData.subscriptionExpiresAt) {
+        // Lógica de Expiração de Assinatura
+        const isExpired = checkIsExpired(userData);
+        
+        if (isExpired) {
+            setCurrentUser(userData);
+            setAppState('expired');
+            setIsLoadingAuth(false);
+            return; 
+        }
+
+        // Aviso de expiração próxima (apenas se não estiver expirado)
+        if (userData.subscriptionExpiresAt && !['admin', 'super_admin', 'operational_admin', 'support_admin'].includes(userData.role)) {
             const today = new Date();
-            today.setHours(0, 0, 0, 0); 
+            today.setHours(0, 0, 0, 0);
             const [year, month, day] = userData.subscriptionExpiresAt.split('-').map(Number);
             const expiryDate = new Date(year, month - 1, day);
             const diffTime = expiryDate.getTime() - today.getTime();
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-            if (diffDays < 0) {
-                setCurrentUser(userData);
-                setAppState('expired');
-                setIsLoadingAuth(false);
-                return; 
-            } else if (diffDays <= 5) {
+            
+            if (diffDays >= 0 && diffDays <= 5) {
                 setExpirationWarning({ show: true, days: diffDays });
             }
         }
