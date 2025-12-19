@@ -50,18 +50,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
     const { showToast } = useToast();
     const { pricing, loading: loadingPricing } = useSystemSettings();
 
-    // Logs States
     const [logs, setLogs] = useState<AdminLog[]>([]);
     const [loadingLogs, setLoadingLogs] = useState(false);
 
-    // Estados locais para edição de preços e links
     const [editMonthlyPrice, setEditMonthlyPrice] = useState('');
     const [editAnnualPrice, setEditAnnualPrice] = useState('');
     const [editMonthlyLink, setEditMonthlyLink] = useState('');
     const [editAnnualLink, setEditAnnualLink] = useState('');
     const [isSavingPricing, setIsSavingPricing] = useState(false);
 
-    // Modal States (Edição)
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [newEmail, setNewEmail] = useState('');
     const [newName, setNewName] = useState('');
@@ -70,7 +67,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
     const [newRole, setNewRole] = useState<UserRole>('user');
     const [internalNotes, setInternalNotes] = useState(''); 
 
-    // Modal States (Criação de Usuário)
     const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
     const [createName, setCreateName] = useState('');
     const [createEmail, setCreateEmail] = useState('');
@@ -79,10 +75,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
     const [createRole, setCreateRole] = useState<UserRole>('user');
     const [isCreatingUser, setIsCreatingUser] = useState(false);
     
-    // Aba ativa
     const [activeTab, setActiveTab] = useState<'users' | 'support' | 'settings' | 'logs'>('users');
 
-    // --- PERMISSIONS LOGIC ---
     const userRole = currentUser.role || 'user';
     
     const isSuperAdmin = userRole === 'super_admin' || userRole === 'admin';
@@ -105,7 +99,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
         }
     }, [loadingPricing, pricing]);
 
-    // --- LOGGING HELPER ---
     const logAction = async (action: string, details: string, targetUser?: User) => {
         try {
             await addDoc(collection(db, 'admin_logs'), {
@@ -122,7 +115,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
         }
     };
 
-    // --- DATA FETCHING ---
     const fetchUsers = async () => {
         try {
             setIsLoading(true);
@@ -257,7 +249,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
             await updateDoc(userRef, { 
                 name: newName, 
                 email: newEmail, 
-                cpf: newCpf.replace(/\D/g, ''), // Salva limpo
+                cpf: newCpf.replace(/\D/g, ''), 
                 subscriptionExpiresAt: subscriptionDate || null, 
                 role: newRole, 
                 internalNotes: internalNotes 
@@ -563,7 +555,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                             <div className="space-y-6">
                                 <div className="flex items-center gap-2 text-gray-800 font-bold border-b border-gray-100 pb-3 mb-4">
                                     <span className="material-symbols-outlined text-blue-600">link</span>
-                                    <span>Páginas de Checkout (Kirvano)</span>
+                                    <span>Páginas de Checkout</span>
                                 </div>
                                 <div className="space-y-6">
                                     <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">

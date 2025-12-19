@@ -58,7 +58,6 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, on
   const annualMonthlyEquivalent = pricing.annualPrice / 12;
 
   const handleSubscribe = () => {
-      // Usa os links salvos no banco de dados, ou fallback para string vazia
       const link = selectedPlan === 'annual'
           ? (pricing.annualLink || 'https://pay.kirvano.com/d5e20900-e9da-40fa-a226-03c484c321d4')
           : (pricing.monthlyLink || 'https://pay.kirvano.com/1f5acd83-e53a-4a80-8b72-42f87659a777');
@@ -119,7 +118,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, on
             <span className="material-symbols-outlined text-sm">arrow_forward</span>
           </button>
           <p className="text-[10px] text-center text-gray-400 mt-3 flex items-center justify-center gap-1">
-            <span className="material-symbols-outlined text-[12px]">lock</span> Pagamento seguro via Kirvano
+            <span className="material-symbols-outlined text-[12px]">lock</span> Pagamento 100% seguro e criptografado
           </p>
         </div>
       </div>

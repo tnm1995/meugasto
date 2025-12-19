@@ -5,39 +5,33 @@ import * as admin from "firebase-admin";
 admin.initializeApp();
 const db = admin.firestore();
 
-const KIRVANO_TOKEN = "4f9a8c2e1d5b7f3g9h1j";
+// Token de segurança para validação do webhook (mantenha o mesmo para compatibilidade ou altere no provedor)
+const PAYMENT_TOKEN = "4f9a8c2e1d5b7f3g9h1j";
 
 /**
- * Fixed: Replaced functions.https.Request and functions.Response with 'any' 
- * to resolve property access errors (method, query, body, status) 
- * caused by type clashes between Firebase Functions versions and global DOM types.
+ * Webhook genérico de processamento de pagamentos
  */
-export const kirvanoWebhook = functions.https.onRequest(async (req: any, res: any) => {
-  // Using any ensures 'method' is accessible regardless of type clashing
+export const paymentWebhook = functions.https.onRequest(async (req: any, res: any) => {
   if (req.method !== "POST") {
-    // Using any ensures 'status' is accessible regardless of type clashing
     res.status(405).send("Method Not Allowed");
     return;
   }
 
-  // Using any ensures 'query' and 'body' are accessible
   const providedToken = req.query.token || req.body.token;
   
-  if (providedToken !== KIRVANO_TOKEN) {
+  if (providedToken !== PAYMENT_TOKEN) {
       console.warn("Unauthorized access attempt. Invalid Token:", providedToken);
-      // Accessing status on Response
       res.status(403).send("Forbidden: Invalid Token");
       return;
   }
 
   try {
-    // Accessing body payload
     const data = req.body;
-    console.log("Kirvano Webhook Payload:", JSON.stringify(data));
+    console.log("Payment Webhook Payload:", JSON.stringify(data));
 
     const status = (data.status || data.transaction_status || "").toUpperCase();
     const email = data.customer?.email || data.email;
-    const cpfRaw = data.customer?.cpf || data.cpf || ""; // Tenta capturar CPF do payload
+    const cpfRaw = data.customer?.cpf || data.cpf || ""; 
     const cpf = cpfRaw.replace(/\D/g, "");
     const productName = (data.product_name || data.offer_title || "").toLowerCase();
 
@@ -58,7 +52,6 @@ export const kirvanoWebhook = functions.https.onRequest(async (req: any, res: an
     const usersRef = db.collection("users");
     let userDoc: admin.firestore.QueryDocumentSnapshot | null = null;
 
-    // 1. Tenta buscar por E-mail
     if (email) {
         const emailSnapshot = await usersRef.where("email", "==", email).limit(1).get();
         if (!emailSnapshot.empty) {
@@ -66,9 +59,7 @@ export const kirvanoWebhook = functions.https.onRequest(async (req: any, res: an
         }
     }
 
-    // 2. Se não achou por email, tenta por CPF
     if (!userDoc && cpf) {
-        console.log(`User not found by email, searching by CPF: ${cpf}`);
         const cpfSnapshot = await usersRef.where("cpf", "==", cpf).limit(1).get();
         if (!cpfSnapshot.empty) {
             userDoc = cpfSnapshot.docs[0];
@@ -109,14 +100,14 @@ export const kirvanoWebhook = functions.https.onRequest(async (req: any, res: an
         updatedAt: new Date().toISOString(),
         lastPayment: {
             date: new Date().toISOString(),
-            provider: "kirvano",
+            provider: "external_gateway",
             amount: data.amount || 0,
             transactionId: data.id || data.transaction_id || "unknown",
             product: productName
         }
     });
 
-    console.log(`SUCCESS: User ${userDoc.id} (${userData.email || 'N/A'}) updated to ${newExpiresAtStr}.`);
+    console.log(`SUCCESS: User ${userDoc.id} updated to ${newExpiresAtStr}.`);
     res.status(200).json({ success: true, message: "Subscription updated", newExpiry: newExpiresAtStr });
 
   } catch (error) {

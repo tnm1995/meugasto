@@ -1257,7 +1257,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, scrollTarget,
             <div className="flex items-center gap-4">
               <button 
                 onClick={() => onStart('login')}
-                className="text-gray-600 font-medium hover:text-blue-600 transition-colors text-sm"
+                className="text-gray-700 font-bold hover:text-blue-600 transition-all text-sm px-5 py-2 rounded-full border-2 border-transparent hover:border-blue-50"
               >
                 Entrar
               </button>
@@ -1303,30 +1303,42 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, scrollTarget,
                   Esqueça planilhas. Tire uma foto e nossa IA categoriza tudo. Encontre os "gastos invisíveis" e comece a sobrar dinheiro hoje.
                 </p>
                 
-                <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
-                  {/* Novo Botão Radial */}
-                  <motion.button
-                    onClick={() => onStart('register')}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="relative w-full sm:w-auto inline-flex overflow-hidden rounded-full p-[2px] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-white shadow-xl shadow-blue-500/40"
-                  >
-                    <span className="absolute inset-[-1000%] animate-[spin_2s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#bae6fd_0%,#2563eb_50%,#bae6fd_100%)]" />
-                    <span className="inline-flex h-full w-full cursor-pointer items-center justify-center rounded-full bg-blue-600 px-8 py-4 text-lg font-bold text-white backdrop-blur-3xl transition-all hover:bg-blue-700 gap-2">
-                      Começar Agora
-                      <ChevronRightIcon className="text-xl" />
-                    </span>
-                  </motion.button>
+                <div className="flex flex-col gap-6">
+                    <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
+                        {/* Novo Botão Radial */}
+                        <motion.button
+                            onClick={() => onStart('register')}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            className="relative w-full sm:w-auto inline-flex overflow-hidden rounded-full p-[2px] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-white shadow-xl shadow-blue-500/40"
+                        >
+                            <span className="absolute inset-[-1000%] animate-[spin_2s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#bae6fd_0%,#2563eb_50%,#bae6fd_100%)]" />
+                            <span className="inline-flex h-full w-full cursor-pointer items-center justify-center rounded-full bg-blue-600 px-8 py-4 text-lg font-bold text-white backdrop-blur-3xl transition-all hover:bg-blue-700 gap-2">
+                            Começar Agora
+                            <ChevronRightIcon className="text-xl" />
+                            </span>
+                        </motion.button>
 
-                  <button 
-                    onClick={() => {
-                        const el = document.getElementById('how-it-works');
-                        if(el) el.scrollIntoView({behavior: 'smooth'});
-                    }}
-                    className="w-full sm:w-auto px-8 py-4 bg-white text-gray-700 border border-gray-200 rounded-full font-bold text-lg hover:bg-gray-50 transition-all flex items-center justify-center hover:border-gray-300 active:scale-95"
-                  >
-                    Ver Como Funciona
-                  </button>
+                        <button 
+                            onClick={() => {
+                                const el = document.getElementById('how-it-works');
+                                if(el) el.scrollIntoView({behavior: 'smooth'});
+                            }}
+                            className="w-full sm:w-auto px-8 py-4 bg-white text-gray-700 border border-gray-200 rounded-full font-bold text-lg hover:bg-gray-50 transition-all flex items-center justify-center hover:border-gray-300 active:scale-95"
+                        >
+                            Ver Como Funciona
+                        </button>
+                    </div>
+                    
+                    {/* Botão de Entrar para quem já tem conta */}
+                    <div className="flex justify-center lg:justify-start">
+                        <button 
+                            onClick={() => onStart('login')}
+                            className="text-gray-500 hover:text-blue-600 text-sm font-semibold transition-colors flex items-center gap-2 group"
+                        >
+                            Já tem uma conta? <span className="text-blue-600 group-hover:underline">Entrar agora</span>
+                        </button>
+                    </div>
                 </div>
                 
                 <div className="mt-8 flex items-center justify-center lg:justify-start gap-4 text-sm text-gray-500">
@@ -1617,7 +1629,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, scrollTarget,
 
       {/* FAQ Section */}
       <section id="faq" className="py-24 bg-white border-t border-gray-100">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-3xl auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
                 <h2 className="text-3xl font-bold text-gray-900 mb-4">Perguntas Frequentes</h2>
                 <p className="text-gray-600">Tire suas dúvidas e veja como o MeuGasto pode te ajudar.</p>
@@ -1684,6 +1696,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, scrollTarget,
                   </div>
                   
                   <div className="flex flex-wrap justify-center gap-8 text-sm text-gray-600">
+                      <button onClick={() => onStart('login')} className="hover:text-blue-600 transition-colors font-bold">Entrar</button>
                       <button onClick={() => onStart('terms')} className="hover:text-blue-600 transition-colors">Termos de Uso</button>
                       <button onClick={() => onStart('privacy')} className="hover:text-blue-600 transition-colors">Política de Privacidade</button>
                       <button onClick={onOpenSupport} className="hover:text-blue-600 transition-colors">Suporte</button>
