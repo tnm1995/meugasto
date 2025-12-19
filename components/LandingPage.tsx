@@ -1329,16 +1329,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, scrollTarget,
                             Ver Como Funciona
                         </button>
                     </div>
-                    
-                    {/* Botão de Entrar para quem já tem conta */}
-                    <div className="flex justify-center lg:justify-start">
-                        <button 
-                            onClick={() => onStart('login')}
-                            className="text-gray-500 hover:text-blue-600 text-sm font-semibold transition-colors flex items-center gap-2 group"
-                        >
-                            Já tem uma conta? <span className="text-blue-600 group-hover:underline">Entrar agora</span>
-                        </button>
-                    </div>
                 </div>
                 
                 <div className="mt-8 flex items-center justify-center lg:justify-start gap-4 text-sm text-gray-500">
@@ -1629,7 +1619,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, scrollTarget,
 
       {/* FAQ Section */}
       <section id="faq" className="py-24 bg-white border-t border-gray-100">
-        <div className="max-w-3xl auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
                 <h2 className="text-3xl font-bold text-gray-900 mb-4">Perguntas Frequentes</h2>
                 <p className="text-gray-600">Tire suas dúvidas e veja como o MeuGasto pode te ajudar.</p>
