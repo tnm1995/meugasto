@@ -52,7 +52,8 @@ export const register = async (name: string, email: string, password: string, ph
             const querySnapshot = await getDocs(q);
 
             if (!querySnapshot.empty) {
-                // CPF Duplicado: Deleta o usuário do Auth e retorna erro explícito
+                // CPF Duplicado: Deleta o usuário do Auth ANTES de retornar
+                // Isso vai disparar o onAuthStateChanged(null) no App.tsx
                 await deleteUser(firebaseUser);
                 return { 
                     success: false, 
@@ -83,7 +84,7 @@ export const register = async (name: string, email: string, password: string, ph
 
         } catch (innerError: any) {
             // Se falhar ao salvar no banco ou checar CPF, remove a conta do Auth para permitir nova tentativa
-            await deleteUser(firebaseUser);
+            try { await deleteUser(firebaseUser); } catch(e) {}
             throw innerError;
         }
 

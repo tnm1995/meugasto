@@ -48,7 +48,8 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    if (appState !== 'app' || !currentUser?.uid) return;
+    // Só atualiza presença se estivermos no app e o documento do usuário REALMENTE existir (evita erro 404)
+    if (appState !== 'app' || !currentUser?.uid || !currentUser?.createdAt) return;
 
     const updatePresence = async () => {
         try {
@@ -59,7 +60,10 @@ const App: React.FC = () => {
             const ticketRef = doc(db, 'tickets', currentUser.uid);
             updateDoc(ticketRef, { userLastActive: serverTimestamp() }).catch(() => {});
         } catch (e) {
-            console.error("Error updating presence:", e);
+            // Silencia erro se for apenas o delay de criação do documento
+            if (!(e as any).message?.includes('No document to update')) {
+                console.error("Error updating presence:", e);
+            }
         }
     };
 
@@ -67,7 +71,7 @@ const App: React.FC = () => {
     const interval = setInterval(updatePresence, 60000);
 
     return () => clearInterval(interval);
-  }, [appState, currentUser?.uid]);
+  }, [appState, currentUser?.uid, currentUser?.createdAt]);
 
   useEffect(() => {
     const path = window.location.pathname;
@@ -119,10 +123,10 @@ const App: React.FC = () => {
         if (docSnap.exists()) {
             userData = { ...docSnap.data(), uid } as User;
         } else {
-            // Durante o cadastro, o documento pode não existir ainda se o Auth.tsx não chamou onLoginSuccess
-            // Se não for check periódico e não houver documento, só prosseguimos se não estivermos na tela de Auth
+            // Se o documento não existe, verificamos se estamos em fluxo de cadastro
             const isAuthPath = window.location.pathname === '/login' || window.location.pathname === '/cadastro';
-            if (isAuthPath && !isPeriodicCheck) {
+            if (isAuthPath) {
+                // Durante o cadastro, se o doc ainda não existe, NÃO prosseguimos para o appState 'app'
                 setIsLoadingAuth(false);
                 return;
             }
@@ -200,12 +204,12 @@ const App: React.FC = () => {
 
     try {
         const unsubscribe = onAuthStateChanged(auth, async (user: any) => {
+          const path = window.location.pathname;
+          const isAuthPath = path === '/login' || path === '/cadastro';
+
           if (user) {
-            // CRÍTICO: Se estamos nas rotas de Auth, ignoramos o auto-redirecionamento do onAuthStateChanged.
-            // O componente Auth.tsx chamará handleLoginSuccess/validateUserSession quando as validações de banco terminarem.
-            const path = window.location.pathname;
-            const isAuthPath = path === '/login' || path === '/cadastro';
-            
+            // Se estivermos em uma rota de Auth (Login/Cadastro), NÃO chamamos a validação automática.
+            // Deixamos o componente Auth.tsx chamar o handleLoginSuccess no momento certo.
             if (!isAuthPath || appState === 'app') {
                 await validateUserSession(user.uid);
             } else {
@@ -213,8 +217,8 @@ const App: React.FC = () => {
             }
           } else {
             setCurrentUser(null);
-            const path = window.location.pathname;
-            if (path !== '/login' && path !== '/cadastro' && path !== '/obrigado') {
+            // Se o usuário foi deletado ou deslogou, mas ainda estamos na tela de cadastro/login, NÃO voltamos para landing
+            if (!isAuthPath && path !== '/obrigado') {
                 setAppState('landing');
             }
             setIsLoadingAuth(false);
