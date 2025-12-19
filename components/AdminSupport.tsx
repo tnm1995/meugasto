@@ -507,7 +507,7 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
                                     >
                                         {tag.label}
                                     </button>
-                                );
+                                );w
                             })}
                         </div>
                     </div>

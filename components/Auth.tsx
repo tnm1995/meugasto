@@ -27,6 +27,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [phone, setPhone] = useState('');
+    const [cpf, setCpf] = useState('');
     
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -51,6 +52,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
         setPassword('');
         setConfirmPassword('');
         setPhone('');
+        setCpf('');
         setError('');
         setSuccess('');
         setShowPassword(false);
@@ -76,6 +78,21 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
         setPhone(formatted);
     };
 
+    const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value.replace(/\D/g, '').slice(0, 11);
+        let formatted = value;
+
+        if (value.length > 9) {
+            formatted = `${value.slice(0, 3)}.${value.slice(3, 6)}.${value.slice(6, 9)}-${value.slice(9)}`;
+        } else if (value.length > 6) {
+            formatted = `${value.slice(0, 3)}.${value.slice(3, 6)}.${value.slice(6)}`;
+        } else if (value.length > 3) {
+            formatted = `${value.slice(0, 3)}.${value.slice(3)}`;
+        }
+
+        setCpf(formatted);
+    };
+
     const validateForm = () => {
         setError('');
         if (!email || (!password && !isResetPasswordView)) {
@@ -85,6 +102,10 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
         if (!isLoginView && !isResetPasswordView) {
             if (!name) {
                 setError('Nome é obrigatório.');
+                return false;
+            }
+            if (!cpf || cpf.replace(/\D/g, '').length < 11) {
+                setError('CPF incompleto ou inválido.');
                 return false;
             }
             if (!phone) {
@@ -105,7 +126,6 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
         setSuccess('');
         setIsLoading(true);
         
-        // Timer para mostrar spinner apenas se demorar um pouco (UX)
         loadingTimeoutRef.current = window.setTimeout(() => {
             setShowSpinner(true);
         }, 250);
@@ -128,7 +148,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
                     showToast(result.message, 'error');
                 }
             } else if (!isLoginView && !isResetPasswordView) {
-                const result = await register(name, email, password, phone);
+                const result = await register(name, email, password, phone, cpf);
                 if (result.success) {
                     setSuccess(result.message + ' Por favor, faça o login.');
                     showToast(result.message + ' Agora, faça o login.', 'success');
@@ -206,7 +226,6 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
                         <p className="text-gray-500 font-medium text-sm">Entre para gerenciar suas finanças.</p>
                     </div>
                     
-                    {/* Container do Formulário */}
                     <div className="space-y-6">
                         <div className="text-center">
                             <h2 className="text-2xl font-bold text-gray-900">
@@ -250,6 +269,19 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
                                                     required
                                                     autoComplete="name"
                                                     placeholder="Seu nome completo"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block ml-1" htmlFor="cpf">CPF</label>
+                                                <input
+                                                    type="text"
+                                                    id="cpf"
+                                                    value={cpf}
+                                                    onChange={handleCpfChange}
+                                                    className={inputClasses}
+                                                    required
+                                                    placeholder="000.000.000-00"
+                                                    maxLength={14}
                                                 />
                                             </div>
                                             <div>
@@ -365,7 +397,6 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
 
             {/* LADO DIREITO: Benefícios (Escondido no Mobile) */}
             <div className="hidden lg:flex w-1/2 bg-gradient-to-br from-blue-600 to-indigo-900 relative overflow-hidden flex-col justify-center items-center text-white p-12">
-                {/* Efeitos de Fundo */}
                 <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-white opacity-5 rounded-full blur-3xl animate-blob"></div>
                 <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-purple-500 opacity-20 rounded-full blur-3xl animate-blob animation-delay-2000"></div>
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>

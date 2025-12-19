@@ -15,6 +15,7 @@ export interface User {
   name: string;
   email: string;
   phone?: string;
+  cpf?: string; // Novo campo CPF
   profileImage: string;
   reminderSettings: ReminderSettings;
   role: UserRole;

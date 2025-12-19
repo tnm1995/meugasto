@@ -3,24 +3,61 @@ import type { User, UserRole } from '../types';
 import { auth, db, googleProvider, firebaseConfig } from './firebaseService';
 // @ts-ignore
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile, sendPasswordResetEmail as firebaseSendPasswordResetEmail, signInWithPopup, getAuth } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 // @ts-ignore
 import { initializeApp, deleteApp } from 'firebase/app';
 import { DEFAULT_PROFILE_IMAGE, DEFAULT_REMINDER_SETTINGS } from '../types'; // Import defaults from types
 
-export const register = async (name: string, email: string, password: string, phone: string): Promise<{ success: boolean, message: string, user?: User }> => {
+// Helper para validar CPF (Algoritmo Oficial)
+const isValidCPF = (cpf: string): boolean => {
+    cpf = cpf.replace(/[^\d]+/g, '');
+    if (cpf.length !== 11 || !!cpf.match(/(\d)\1{10}/)) return false;
+    
+    let sum = 0;
+    let remainder;
+    
+    for (let i = 1; i <= 9; i++) sum += parseInt(cpf.substring(i - 1, i)) * (11 - i);
+    remainder = (sum * 10) % 11;
+    if ((remainder === 10) || (remainder === 11)) remainder = 0;
+    if (remainder !== parseInt(cpf.substring(9, 10))) return false;
+    
+    sum = 0;
+    for (let i = 1; i <= 10; i++) sum += parseInt(cpf.substring(i - 1, i)) * (12 - i);
+    remainder = (sum * 10) % 11;
+    if ((remainder === 10) || (remainder === 11)) remainder = 0;
+    if (remainder !== parseInt(cpf.substring(10, 11))) return false;
+    
+    return true;
+};
+
+export const register = async (name: string, email: string, password: string, phone: string, cpf: string): Promise<{ success: boolean, message: string, user?: User }> => {
     try {
-        if (!name || !email || !password || !phone) {
-            return { success: false, message: 'Nome, email, senha e celular são obrigatórios.' };
+        if (!name || !email || !password || !phone || !cpf) {
+            return { success: false, message: 'Todos os campos são obrigatórios.' };
         }
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
             return { success: false, message: 'Formato de email inválido.' };
         }
         
-        // Validação de senha forte: 8 caracteres, letra, número e especial
+        // Validação de senha forte
         const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
         if (!passwordRegex.test(password)) {
             return { success: false, message: 'A senha deve ter no mínimo 8 caracteres, contendo letras, números e caracteres especiais (@$!%*#?&).' };
+        }
+
+        // Limpa e Valida CPF
+        const cleanCpf = cpf.replace(/\D/g, '');
+        if (!isValidCPF(cleanCpf)) {
+            return { success: false, message: 'CPF inválido.' };
+        }
+
+        // Verifica unicidade do CPF no Firestore
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('cpf', '==', cleanCpf));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+            return { success: false, message: 'Este CPF já está cadastrado em outra conta.' };
         }
 
         const cleanPhone = phone.replace(/\D/g, '');
@@ -39,15 +76,16 @@ export const register = async (name: string, email: string, password: string, ph
             uid: firebaseUser.uid, 
             name, 
             email, 
-            phone: `+55${cleanPhone}`, // Salva com o prefixo +55
+            phone: `+55${cleanPhone}`,
+            cpf: cleanCpf, // Salva o CPF limpo
             profileImage: DEFAULT_PROFILE_IMAGE,
             reminderSettings: DEFAULT_REMINDER_SETTINGS,
-            role: 'user', // Default role
-            status: 'active', // Default status
+            role: 'user', 
+            status: 'active', 
             createdAt: new Date().toISOString(),
             subscriptionExpiresAt: null,
         };
-        await setDoc(userDocRef, newUser, { merge: true }); // Use merge to avoid overwriting if doc exists
+        await setDoc(userDocRef, newUser, { merge: true });
 
         return { success: true, message: 'Cadastro realizado com sucesso!', user: newUser };
 
@@ -60,36 +98,39 @@ export const register = async (name: string, email: string, password: string, ph
             errorMessage = 'Endereço de e-mail inválido.';
         } else if (error.code === 'auth/weak-password') {
             errorMessage = 'A senha é muito fraca.';
-        } else if (error.message && error.message.includes('blocked')) {
-            errorMessage = 'Erro de configuração da API (Chave Bloqueada/Restrita).';
         }
         return { success: false, message: errorMessage };
     }
 };
 
-// Função Especial para Admin criar usuários sem perder a sessão
-export const adminCreateUser = async (name: string, email: string, password: string, role: UserRole): Promise<{ success: boolean, message: string }> => {
+// Função Especial para Admin criar usuários
+export const adminCreateUser = async (name: string, email: string, password: string, role: UserRole, cpf: string): Promise<{ success: boolean, message: string }> => {
     let secondaryApp: any = null;
     try {
-        // 1. Inicializa uma instância secundária do Firebase App
-        // Isso evita que o createUserWithEmailAndPassword deslogue o Admin atual da instância principal 'auth'
+        const cleanCpf = cpf.replace(/\D/g, '');
+        if (!isValidCPF(cleanCpf)) return { success: false, message: 'CPF inválido.' };
+
+        // Verifica unicidade do CPF
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('cpf', '==', cleanCpf));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) return { success: false, message: 'CPF já cadastrado.' };
+
         secondaryApp = initializeApp(firebaseConfig, "SecondaryApp");
         const secondaryAuth = getAuth(secondaryApp);
 
-        // 2. Cria o usuário na Authentication usando a instância secundária
         const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
         const newUser = userCredential.user;
 
-        // 3. Atualiza o perfil básico
         await updateProfile(newUser, { displayName: name });
 
-        // 4. Cria o documento no Firestore (usando a instância 'db' principal, pois o admin tem permissão de escrita)
         const userDocRef = doc(db, 'users', newUser.uid);
         const newUserData: User = {
             uid: newUser.uid,
             name,
             email,
-            phone: '', // Pode ser editado depois
+            phone: '', 
+            cpf: cleanCpf,
             profileImage: DEFAULT_PROFILE_IMAGE,
             reminderSettings: DEFAULT_REMINDER_SETTINGS,
             role: role,
@@ -99,8 +140,6 @@ export const adminCreateUser = async (name: string, email: string, password: str
         };
         
         await setDoc(userDocRef, newUserData);
-
-        // 5. Desloga da instância secundária
         await signOut(secondaryAuth);
 
         return { success: true, message: 'Usuário criado com sucesso!' };
@@ -112,7 +151,6 @@ export const adminCreateUser = async (name: string, email: string, password: str
         if (error.code === 'auth/weak-password') errorMessage = 'Senha muito fraca.';
         return { success: false, message: errorMessage };
     } finally {
-        // 6. Limpa a instância secundária para liberar memória
         if (secondaryApp) {
             await deleteApp(secondaryApp);
         }
@@ -128,21 +166,17 @@ export const login = async (email: string, password: string): Promise<{ success:
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const firebaseUser = userCredential.user;
 
-        // Fetch user data to check status/role
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         const docSnap = await getDoc(userDocRef);
         let userData: User;
 
         if (docSnap.exists()) {
             userData = docSnap.data() as User;
-            
-            // Verificação de Bloqueio
             if (userData.status === 'blocked') {
-                await signOut(auth); // Desloga imediatamente
+                await signOut(auth);
                 return { success: false, message: 'Sua conta foi bloqueada pelo administrador.' };
             }
         } else {
-            // Fallback se documento não existir (usuário antigo ou erro na criação)
              userData = {
                 uid: firebaseUser.uid,
                 name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuário',
@@ -162,21 +196,9 @@ export const login = async (email: string, password: string): Promise<{ success:
     } catch (error: any) {
         console.error("Firebase login error:", error);
         let errorMessage = 'Ocorreu um erro durante o login. Tente novamente.';
-        
-        // Error Handling específico
         if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
             errorMessage = 'Email ou senha inválidos.';
-        } else if (error.code === 'auth/invalid-email') {
-            errorMessage = 'Endereço de e-mail inválida.';
-        } else if (error.code === 'auth/network-request-failed') {
-             errorMessage = 'Problema de conexão. Verifique sua internet e tente novamente.';
-        } else if (error.code === 'auth/too-many-requests') {
-            errorMessage = 'Muitas tentativas de login. Tente novamente mais tarde.';
-        } else if (error.message && error.message.includes('blocked')) {
-            // "Requests to this API identitytoolkit... are blocked"
-            errorMessage = 'Erro de API: Acesso bloqueado. Verifique a configuração da chave de API no Google Cloud Console (Identity Toolkit).';
         }
-        
         return { success: false, message: errorMessage };
     }
 };
@@ -186,7 +208,6 @@ export const loginWithGoogle = async (): Promise<{ success: boolean, user?: User
         const result = await signInWithPopup(auth, googleProvider);
         const firebaseUser = result.user;
 
-        // Verifica se o usuário já existe no Firestore
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         const docSnap = await getDoc(userDocRef);
 
@@ -194,18 +215,16 @@ export const loginWithGoogle = async (): Promise<{ success: boolean, user?: User
 
         if (docSnap.exists()) {
             userData = docSnap.data() as User;
-            // Verificação de Bloqueio
             if (userData.status === 'blocked') {
                 await signOut(auth);
                 return { success: false, message: 'Sua conta foi bloqueada pelo administrador.' };
             }
         } else {
-            // Cria novo documento se for o primeiro login com Google
             userData = {
                 uid: firebaseUser.uid,
                 name: firebaseUser.displayName || 'Usuário Google',
                 email: firebaseUser.email || '',
-                phone: '', // Google não retorna telefone por padrão facilmente
+                phone: '',
                 profileImage: firebaseUser.photoURL || DEFAULT_PROFILE_IMAGE,
                 reminderSettings: DEFAULT_REMINDER_SETTINGS,
                 role: 'user',
@@ -219,20 +238,7 @@ export const loginWithGoogle = async (): Promise<{ success: boolean, user?: User
         return { success: true, user: userData, message: 'Login com Google realizado com sucesso!' };
     } catch (error: any) {
         console.error("Google login error:", error);
-        let errorMessage = 'Erro ao entrar com Google.';
-        if (error.code === 'auth/popup-closed-by-user') {
-            errorMessage = 'Login cancelado pelo usuário.';
-        } else if (error.code === 'auth/unauthorized-domain') {
-            // Mensagem específica para ajudar o usuário a configurar o Firebase
-            errorMessage = `Domínio não autorizado (${window.location.hostname}). Adicione-o no Firebase Console > Authentication > Settings > Authorized Domains.`;
-        } else if (error.code === 'auth/popup-blocked') {
-            errorMessage = 'O navegador bloqueou o popup de login. Permita popups para este site.';
-        } else if (error.code === 'auth/account-exists-with-different-credential') {
-            errorMessage = 'Já existe uma conta com este email associada a outro método de login.';
-        } else if (error.message && error.message.includes('blocked')) {
-            errorMessage = 'Erro de API: Acesso ao Identity Toolkit bloqueado.';
-        }
-        return { success: false, message: errorMessage };
+        return { success: false, message: 'Erro ao entrar com Google.' };
     }
 };
 
@@ -241,33 +247,16 @@ export const logout = async (): Promise<{ success: boolean, message: string }> =
         await signOut(auth);
         return { success: true, message: 'Logout realizado com sucesso!' };
     } catch (error: any) {
-        console.error("Firebase logout error:", error);
-        return { success: false, message: 'Ocorreu um erro durante o logout. Tente novamente.' };
+        return { success: false, message: 'Erro durante o logout.' };
     }
 };
 
 export const sendPasswordResetEmail = async (email: string): Promise<{ success: boolean, message: string }> => {
     try {
-        if (!email) {
-            return { success: false, message: 'Por favor, insira seu e-mail.' };
-        }
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            return { success: false, message: 'Formato de e-mail inválido.' };
-        }
+        if (!email) return { success: false, message: 'Por favor, insira seu e-mail.' };
         await firebaseSendPasswordResetEmail(auth, email);
         return { success: true, message: 'Link de redefinição de senha enviado para o seu e-mail!' };
     } catch (error: any) {
-        console.error("Firebase password reset error:", error);
-        let errorMessage = 'Ocorreu um erro ao enviar o e-mail de redefinição.';
-        if (error.code === 'auth/invalid-email') {
-            errorMessage = 'Endereço de e-mail inválido.';
-        } else if (error.code === 'auth/user-not-found') {
-            errorMessage = 'Nenhum usuário encontrado com este e-mail.';
-        } else if (error.code === 'auth/network-request-failed') {
-             errorMessage = 'Problema de conexão. Verifique sua internet e tente novamente.';
-        } else if (error.message && error.message.includes('blocked')) {
-            errorMessage = 'Erro de API: Envio de email bloqueado.';
-        }
-        return { success: false, message: errorMessage };
+        return { success: false, message: 'Erro ao enviar email de redefinição.' };
     }
 };

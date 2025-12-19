@@ -65,6 +65,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [newEmail, setNewEmail] = useState('');
     const [newName, setNewName] = useState('');
+    const [newCpf, setNewCpf] = useState('');
     const [subscriptionDate, setSubscriptionDate] = useState('');
     const [newRole, setNewRole] = useState<UserRole>('user');
     const [internalNotes, setInternalNotes] = useState(''); 
@@ -74,6 +75,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
     const [createName, setCreateName] = useState('');
     const [createEmail, setCreateEmail] = useState('');
     const [createPassword, setCreatePassword] = useState('');
+    const [createCpf, setCreateCpf] = useState('');
     const [createRole, setCreateRole] = useState<UserRole>('user');
     const [isCreatingUser, setIsCreatingUser] = useState(false);
     
@@ -171,7 +173,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
         return users.filter(user => 
             user.name.toLowerCase().includes(lowerTerm) ||
             user.email.toLowerCase().includes(lowerTerm) ||
-            user.uid.toLowerCase().includes(lowerTerm)
+            user.uid.toLowerCase().includes(lowerTerm) ||
+            user.cpf?.includes(lowerTerm)
         );
     }, [users, searchTerm]);
 
@@ -223,6 +226,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
         setEditingUser(user);
         setNewName(user.name);
         setNewEmail(user.email);
+        setNewCpf(user.cpf || '');
         setSubscriptionDate(user.subscriptionExpiresAt || '');
         setNewRole(user.role || 'user');
         setInternalNotes(user.internalNotes || ''); 
@@ -250,9 +254,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
         if (!editingUser) return;
         try {
             const userRef = doc(db, 'users', editingUser.uid);
-            await updateDoc(userRef, { name: newName, email: newEmail, subscriptionExpiresAt: subscriptionDate || null, role: newRole, internalNotes: internalNotes });
+            await updateDoc(userRef, { 
+                name: newName, 
+                email: newEmail, 
+                cpf: newCpf.replace(/\D/g, ''), // Salva limpo
+                subscriptionExpiresAt: subscriptionDate || null, 
+                role: newRole, 
+                internalNotes: internalNotes 
+            });
             await logAction('Edição de Usuário', `Atualizado`, editingUser);
-            setUsers(prev => prev.map(u => u.uid === editingUser.uid ? { ...u, name: newName, email: newEmail, subscriptionExpiresAt: subscriptionDate || null, role: newRole, internalNotes: internalNotes } : u));
+            setUsers(prev => prev.map(u => u.uid === editingUser.uid ? { ...u, name: newName, email: newEmail, cpf: newCpf.replace(/\D/g, ''), subscriptionExpiresAt: subscriptionDate || null, role: newRole, internalNotes: internalNotes } : u));
             showToast('Dados do usuário atualizados.', 'success');
             setEditingUser(null);
         } catch (error) {
@@ -265,12 +276,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
         if (!canCreateUsers) return;
         setIsCreatingUser(true);
         try {
-            const result = await adminCreateUser(createName, createEmail, createPassword, createRole);
+            const result = await adminCreateUser(createName, createEmail, createPassword, createRole, createCpf);
             if (result.success) {
                 await logAction('Criação de Usuário', `Novo usuário: ${createEmail}`, { name: createName, email: createEmail } as User);
                 showToast(result.message, 'success');
                 setIsCreateUserModalOpen(false);
-                setCreateName(''); setCreateEmail(''); setCreatePassword(''); setCreateRole('user');
+                setCreateName(''); setCreateEmail(''); setCreatePassword(''); setCreateCpf(''); setCreateRole('user');
                 await fetchUsers(); 
             } else showToast(result.message, 'error');
         } catch (error) {
@@ -315,7 +326,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
 
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
-        showToast('ID copiado!', 'success');
+        showToast('Copiado!', 'success');
     };
 
     const inputClasses = "w-full p-3 bg-white text-gray-800 rounded-xl border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200";
@@ -340,7 +351,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                     </h1>
                 </div>
                 
-                {/* Tab Switcher */}
                 <div className="flex bg-gray-100 p-1 rounded-xl mt-4 sm:mt-0 shadow-inner overflow-x-auto">
                     <button onClick={() => setActiveTab('users')} className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'users' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}><GroupIcon className="text-lg" /> Usuários</button>
                     <button onClick={() => setActiveTab('support')} className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'support' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}><ChatBubbleIcon className="text-lg" /> Suporte</button>
@@ -349,14 +359,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                 </div>
             </div>
 
-            {/* ABA SUPORTE (Full Height via AdminSupport) */}
             {activeTab === 'support' && (
                 <div className="flex-1 min-h-0 animate-fade-in">
                     <AdminSupport currentUser={currentUser} allUsers={users} />
                 </div>
             )}
 
-            {/* ABA AUDITORIA (Full Height Container) */}
             {activeTab === 'logs' && canViewLogs && (
                 <div className="flex-1 min-h-0 animate-fade-in">
                     <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-200 flex flex-col h-full">
@@ -400,10 +408,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                 </div>
             )}
 
-            {/* ABA USUÁRIOS (Full Height Container) */}
             {activeTab === 'users' && (
                 <div className="flex-1 min-h-0 flex flex-col space-y-4 animate-fade-in">
-                    {/* Cards de Estatísticas */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 shrink-0">
                         <div className="bg-white p-4 rounded-xl shadow-sm flex items-center space-x-3 border border-gray-100">
                             <div className="w-10 h-10 flex items-center justify-center bg-blue-100 rounded-full text-blue-600 flex-shrink-0"><GroupIcon className="text-xl"/></div>
@@ -426,7 +432,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                     <div className="bg-white p-4 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 border border-gray-200 shrink-0">
                         <div className="relative w-full md:w-1/2">
                             <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xl" />
-                            <input type="text" placeholder="Buscar por Nome, Email ou ID..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-12 pr-4 py-3 bg-gray-50 text-gray-800 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-inner" />
+                            <input type="text" placeholder="Nome, Email, CPF ou ID..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-12 pr-4 py-3 bg-gray-50 text-gray-800 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-inner" />
                         </div>
                         {canCreateUsers && <button onClick={() => setIsCreateUserModalOpen(true)} className="w-full md:w-auto bg-green-600 text-white font-bold py-3 px-6 rounded-xl hover:bg-green-700 transition-colors flex items-center justify-center gap-2 shadow-md active:scale-95 text-sm"><PlusIcon className="text-xl" /> Novo Usuário</button>}
                     </div>
@@ -437,6 +443,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                 <thead className="bg-gray-50 sticky top-0 z-10">
                                     <tr>
                                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Usuário</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">CPF</th>
                                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Plano Atual</th>
                                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Criado em</th>
                                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Ações</th>
@@ -444,9 +451,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {isLoading ? (
-                                        <tr><td colSpan={4} className="px-6 py-12 text-center text-gray-500"><div className="flex justify-center"><span className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></span></div></td></tr>
+                                        <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-500"><div className="flex justify-center"><span className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></span></div></td></tr>
                                     ) : filteredUsers.length === 0 ? (
-                                        <tr><td colSpan={4} className="px-6 py-12 text-center text-gray-500 font-medium">Nenhum usuário encontrado.</td></tr>
+                                        <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-500 font-medium">Nenhum usuário encontrado.</td></tr>
                                     ) : (
                                         filteredUsers.map((user) => (
                                             <tr key={user.uid} className="hover:bg-gray-50 transition-colors">
@@ -463,6 +470,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                                             <div className="mt-1">{getRoleBadge(user.role || 'user')}</div>
                                                         </div>
                                                     </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
+                                                    {user.cpf || '-'}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     {user.subscriptionExpiresAt ? (
@@ -491,10 +501,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                 </div>
             )}
 
-            {/* ABA CONFIGURAÇÕES (Full Height / Occupies all space) */}
             {activeTab === 'settings' && canManagePricing && (
                 <div className="flex-1 min-h-0 animate-fade-in flex flex-col bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                    {/* Header Settings */}
                     <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center shrink-0">
                         <div className="flex items-center gap-3">
                             <div className="bg-blue-600 p-2 rounded-xl text-white shadow-md shadow-blue-200">
@@ -514,11 +522,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                         </button>
                     </div>
 
-                    {/* Scrollable Form Content */}
                     <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
                         <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            
-                            {/* Card Preços */}
                             <div className="space-y-6">
                                 <div className="flex items-center gap-2 text-gray-800 font-bold border-b border-gray-100 pb-3 mb-4">
                                     <AttachMoneyIcon className="text-green-600" />
@@ -537,7 +542,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                                 className="w-full pl-12 pr-4 py-4 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono font-bold text-xl text-gray-800"
                                             />
                                         </div>
-                                        <p className="text-[10px] text-gray-400 mt-2">Valor que aparecerá no modal de assinatura.</p>
                                     </div>
 
                                     <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 hover:border-blue-200 transition-colors">
@@ -552,56 +556,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                                 className="w-full pl-12 pr-4 py-4 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono font-bold text-xl text-gray-800"
                                             />
                                         </div>
-                                        <p className="text-[10px] text-gray-400 mt-2">Valor total cobrado anualmente.</p>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Card Links Checkout */}
                             <div className="space-y-6">
                                 <div className="flex items-center gap-2 text-gray-800 font-bold border-b border-gray-100 pb-3 mb-4">
                                     <span className="material-symbols-outlined text-blue-600">link</span>
                                     <span>Páginas de Checkout (Kirvano)</span>
                                 </div>
-                                
                                 <div className="space-y-6">
                                     <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                            Link de Checkout Mensal
-                                        </label>
-                                        <div className="relative group">
-                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 material-symbols-outlined">shopping_cart</span>
-                                            <input 
-                                                type="url" 
-                                                value={editMonthlyLink}
-                                                onChange={e => setEditMonthlyLink(e.target.value)}
-                                                placeholder="https://pay.kirvano.com/..."
-                                                className="w-full pl-12 pr-4 py-4 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm text-blue-600 font-medium"
-                                            />
-                                        </div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">Link Mensal</label>
+                                        <input type="url" value={editMonthlyLink} onChange={e => setEditMonthlyLink(e.target.value)} className="w-full p-4 border border-gray-200 rounded-xl text-sm text-blue-600 font-medium" />
                                     </div>
-
                                     <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                            Link de Checkout Anual
-                                        </label>
-                                        <div className="relative group">
-                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 material-symbols-outlined">workspace_premium</span>
-                                            <input 
-                                                type="url" 
-                                                value={editAnnualLink}
-                                                onChange={e => setEditAnnualLink(e.target.value)}
-                                                placeholder="https://pay.kirvano.com/..."
-                                                className="w-full pl-12 pr-4 py-4 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm text-blue-600 font-medium"
-                                            />
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 flex gap-3">
-                                        <span className="material-symbols-outlined text-blue-500 text-xl">info</span>
-                                        <p className="text-xs text-blue-700 leading-relaxed font-medium">
-                                            Certifique-se de que os links de checkout na Kirvano estão configurados com o Webhook correto para que a liberação seja automática.
-                                        </p>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">Link Anual</label>
+                                        <input type="url" value={editAnnualLink} onChange={e => setEditAnnualLink(e.target.value)} className="w-full p-4 border border-gray-200 rounded-xl text-sm text-blue-600 font-medium" />
                                     </div>
                                 </div>
                             </div>
@@ -610,7 +581,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                 </div>
             )}
 
-            {/* Modal de Edição de Usuário */}
             {editingUser && canEditUsers && (
                 <div className="fixed inset-0 bg-gray-900/40 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto animate-fade-in border border-gray-100">
@@ -621,7 +591,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                         <div className="space-y-6">
                             <div className="space-y-3">
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Nome</label><input type="text" value={newName} onChange={e => setNewName(e.target.value)} className={inputClasses} /></div>
-                                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100"><label className="block text-xs font-bold text-blue-800 uppercase tracking-wide mb-1.5 flex items-center gap-2"><EmailIcon /> Email de Login</label><input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} className="w-full p-3 border border-blue-200 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm" /></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Email de Login</label><input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} className={inputClasses} /></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">CPF (Somente números)</label><input type="text" value={newCpf} onChange={e => setNewCpf(e.target.value.replace(/\D/g, ''))} className={inputClasses} maxLength={11} /></div>
                             </div>
                             <div className="border-t border-gray-100 pt-4">
                                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2"><span className="material-symbols-outlined text-base">calendar_month</span> Controle de Assinatura</label>
@@ -632,12 +603,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                         <button onClick={() => handleExtendSubscription(12)} className="px-2 py-2 bg-blue-50 text-blue-600 text-xs font-bold rounded-lg hover:bg-blue-100 border border-blue-100 transition-colors">+1 Ano</button>
                                         <button onClick={() => setSubscriptionDate('')} className="px-2 py-2 bg-purple-50 text-purple-600 text-xs font-bold rounded-lg hover:bg-purple-100 border border-purple-100 transition-colors">Vitalício</button>
                                     </div>
-                                    <button onClick={handleRevokeSubscription} className="w-full py-2 bg-red-50 text-red-600 text-xs font-bold rounded-lg hover:bg-red-100 border border-red-100 transition-colors flex items-center justify-center gap-1"><span className="material-symbols-outlined text-sm">cancel</span> Cancelar Assinatura (Expirar Hoje)</button>
+                                    <button onClick={handleRevokeSubscription} className="w-full py-2 bg-red-50 text-red-600 text-xs font-bold rounded-lg hover:bg-red-100 border border-red-100 transition-colors flex items-center justify-center gap-1"><span className="material-symbols-outlined text-sm">cancel</span> Cancelar Assinatura</button>
                                 </div>
                             </div>
                             <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
                                 <label className="block text-xs font-bold text-yellow-800 uppercase tracking-wide mb-1.5 flex items-center gap-2"><DescriptionIcon className="text-sm"/> Observações Internas (Admin)</label>
-                                <textarea value={internalNotes} onChange={e => setInternalNotes(e.target.value)} className="w-full p-3 border border-yellow-200 rounded-lg bg-white focus:ring-2 focus:ring-yellow-400 outline-none text-xs resize-none h-20 placeholder-yellow-800/30" placeholder="Ex: Usuário liberado 30 dias por erro no gateway." />
+                                <textarea value={internalNotes} onChange={e => setInternalNotes(e.target.value)} className="w-full p-3 border border-yellow-200 rounded-lg bg-white focus:ring-2 focus:ring-yellow-400 outline-none text-xs resize-none h-20 placeholder-yellow-800/30" />
                             </div>
                             {canManageAdmins && (
                                 <div className="border-t border-gray-100 pt-4">
@@ -659,7 +630,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                 </div>
             )}
             
-            {/* Modal de CRIAÇÃO de Usuário */}
             {isCreateUserModalOpen && canCreateUsers && (
                 <div className="fixed inset-0 bg-gray-900/40 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto animate-fade-in">
@@ -669,6 +639,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                         </div>
                         <form onSubmit={handleCreateUser} className="space-y-5">
                             <div><label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Nome Completo</label><input type="text" value={createName} onChange={e => setCreateName(e.target.value)} className={inputClasses} placeholder="Ex: João Silva" required /></div>
+                            <div><label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">CPF</label><input type="text" value={createCpf} onChange={e => setCreateCpf(e.target.value)} className={inputClasses} placeholder="000.000.000-00" required /></div>
                             <div><label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Email de Login</label><input type="email" value={createEmail} onChange={e => setCreateEmail(e.target.value)} className={inputClasses} placeholder="exemplo@email.com" required /></div>
                             <div><label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Senha Temporária</label><input type="password" value={createPassword} onChange={e => setCreatePassword(e.target.value)} className={inputClasses} placeholder="Mínimo 6 caracteres" required minLength={6} /></div>
                             <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
@@ -684,7 +655,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                     )}
                                 </select>
                             </div>
-                            <div className="pt-4 border-t border-gray-100"><button type="submit" disabled={isCreatingUser} className="w-full py-3.5 bg-green-600 text-white rounded-xl hover:bg-green-700 font-bold transition-all shadow-md disabled:bg-green-300 flex items-center justify-center active:scale-95">{isCreatingUser ? <span className="flex items-center"><span className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></span>Criando...</span> : 'Criar Usuário'}</button></div>
+                            <div className="pt-4 border-t border-gray-100"><button type="submit" disabled={isCreatingUser} className="w-full py-3.5 bg-green-600 text-white rounded-xl hover:bg-green-700 font-bold transition-all shadow-md disabled:bg-green-300 flex items-center justify-center active:scale-95">{isCreatingUser ? <span className="flex items-center"><span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>Criando...</span> : 'Criar Usuário'}</button></div>
                         </form>
                     </div>
                 </div>
