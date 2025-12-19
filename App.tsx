@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { User, View } from './types';
 import { DEFAULT_PROFILE_IMAGE, DEFAULT_REMINDER_SETTINGS } from './types';
 import { Auth } from './components/Auth';
@@ -37,6 +37,9 @@ const App: React.FC = () => {
   
   const [currentAppView, setCurrentAppView] = useState<View>('dashboard');
 
+  // Ref para evitar loops de processamento em transições rápidas
+  const processingAuth = useRef(false);
+
   const safePushState = (path: string) => {
     try {
         if (window.location.pathname !== path) {
@@ -47,91 +50,92 @@ const App: React.FC = () => {
     }
   };
 
-  // Helper para verificar expiração de forma síncrona
-  const checkIsExpired = (userData: User | null): boolean => {
+  // Helper para verificar expiração/assinatura ausente de forma síncrona
+  const checkIsExpired = useCallback((userData: User | null): boolean => {
     if (!userData) return false;
     // Admins não expiram
     if (['admin', 'super_admin', 'operational_admin', 'support_admin'].includes(userData.role)) return false;
-    if (!userData.subscriptionExpiresAt) return false;
+    
+    // Se não tem data de expiração, é tratado como não assinado/expirado (a menos que seja free tier, mas aqui o app é pago)
+    if (!userData.subscriptionExpiresAt) return true;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0); 
     const [year, month, day] = userData.subscriptionExpiresAt.split('-').map(Number);
     const expiryDate = new Date(year, month - 1, day);
     return expiryDate < today;
-  };
+  }, []);
 
+  // Monitor de presença
   useEffect(() => {
-    // Só atualiza presença se estivermos no app e o documento do usuário REALMENTE existir (evita erro 404)
     if (appState !== 'app' || !currentUser?.uid || !currentUser?.createdAt) return;
 
     const updatePresence = async () => {
         try {
             const userRef = doc(db, 'users', currentUser.uid);
-            await updateDoc(userRef, { 
-                lastSeen: serverTimestamp() 
-            });
+            await updateDoc(userRef, { lastSeen: serverTimestamp() });
             const ticketRef = doc(db, 'tickets', currentUser.uid);
             updateDoc(ticketRef, { userLastActive: serverTimestamp() }).catch(() => {});
         } catch (e) {
-            // Silencia erro se for apenas o delay de criação do documento
             if (!(e as any).message?.includes('No document to update')) {
-                console.error("Error updating presence:", e);
+                console.error("Presence error:", e);
             }
         }
     };
 
     updatePresence();
     const interval = setInterval(updatePresence, 60000);
-
     return () => clearInterval(interval);
   }, [appState, currentUser?.uid, currentUser?.createdAt]);
 
+  // Gerenciador de Rotas e Sincronização de Estado
   useEffect(() => {
-    const path = window.location.pathname;
-    
-    if (path === '/login') {
-        setAppState('auth');
-        setAuthInitialView('login');
-    } else if (path === '/cadastro') {
-        setAppState('auth');
-        setAuthInitialView('register');
-    } else if (path === '/obrigado') {
-        setAppState('thankyou');
-    } else if (path === '/') {
-        setAppState('landing');
-    }
-
-    const handlePopState = () => {
-        const currentPath = window.location.pathname;
-        if (currentPath === '/login') {
+    const handleNavigation = () => {
+        const path = window.location.pathname;
+        
+        if (path === '/login') {
             setAppState('auth');
             setAuthInitialView('login');
-        } else if (currentPath === '/cadastro') {
+        } else if (path === '/cadastro') {
             setAppState('auth');
             setAuthInitialView('register');
-        } else if (currentPath === '/obrigado') {
+        } else if (path === '/obrigado') {
             setAppState('thankyou');
-        } else if (currentPath === '/') {
-            setAppState('landing');
-        } else if (['/dashboard', '/lancamentos', '/relatorios', '/perfil', '/planejamento', '/admin'].includes(currentPath)) {
+        } else if (path === '/') {
+            // Se o usuário já estiver logado e na landing, mas não estiver expirado, manda pro app
+            if (currentUser && !checkIsExpired(currentUser)) {
+                setAppState('app');
+                safePushState('/dashboard');
+            } else {
+                setAppState('landing');
+            }
+        } else if (['/dashboard', '/lancamentos', '/relatorios', '/perfil', '/planejamento', '/admin'].includes(path)) {
             if (currentUser) {
-                // CORREÇÃO: Verifica expiração antes de forçar o estado 'app'
                 if (checkIsExpired(currentUser)) {
                     setAppState('expired');
                 } else {
                     setAppState('app');
                 }
+            } else if (!isLoadingAuth) {
+                // Se não tem user e tentou entrar em rota protegida, volta pra landing
+                setAppState('landing');
+                safePushState('/');
             }
         }
     };
 
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [currentUser]);
+    handleNavigation();
+    window.addEventListener('popstate', handleNavigation);
+    return () => window.removeEventListener('popstate', handleNavigation);
+  }, [currentUser, isLoadingAuth, checkIsExpired]);
 
   const validateUserSession = useCallback(async (uid: string, isPeriodicCheck: boolean = false) => {
-    if (!isPeriodicCheck) setIsLoadingAuth(true);
+    if (processingAuth.current && !isPeriodicCheck) return;
+    if (!isPeriodicCheck) {
+        setIsLoadingAuth(true);
+        processingAuth.current = true;
+    }
+
     setExpirationWarning({ show: false, days: 0 });
 
     try {
@@ -142,11 +146,10 @@ const App: React.FC = () => {
         if (docSnap.exists()) {
             userData = { ...docSnap.data(), uid } as User;
         } else {
-            // Se o documento não existe, verificamos se estamos em fluxo de cadastro
             const isAuthPath = window.location.pathname === '/login' || window.location.pathname === '/cadastro';
             if (isAuthPath) {
-                // Durante o cadastro, se o doc ainda não existe, NÃO prosseguimos para o appState 'app'
                 setIsLoadingAuth(false);
+                processingAuth.current = false;
                 return;
             }
 
@@ -170,20 +173,21 @@ const App: React.FC = () => {
             safePushState('/'); 
             if (!isPeriodicCheck) alert("Sua conta está bloqueada.");
             setIsLoadingAuth(false);
+            processingAuth.current = false;
             return;
         }
 
-        // Lógica de Expiração de Assinatura
         const isExpired = checkIsExpired(userData);
-        
+        setCurrentUser(userData);
+
         if (isExpired) {
-            setCurrentUser(userData);
             setAppState('expired');
             setIsLoadingAuth(false);
+            processingAuth.current = false;
             return; 
         }
 
-        // Aviso de expiração próxima (apenas se não estiver expirado)
+        // Aviso de expiração próxima (5 dias)
         if (userData.subscriptionExpiresAt && !['admin', 'super_admin', 'operational_admin', 'support_admin'].includes(userData.role)) {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -196,30 +200,31 @@ const App: React.FC = () => {
                 setExpirationWarning({ show: true, days: diffDays });
             }
         }
-
-        setCurrentUser(userData);
         
         if (!isPeriodicCheck) {
-             if (window.location.pathname !== '/obrigado') {
+             const path = window.location.pathname;
+             if (path !== '/obrigado') {
                  setAppState('app');
-                 const currentPath = window.location.pathname;
                  const validAppPaths = ['/dashboard', '/lancamentos', '/relatorios', '/perfil', '/planejamento', '/admin'];
-                 if (currentPath === '/' || currentPath === '/login' || currentPath === '/cadastro' || !validAppPaths.includes(currentPath)) {
+                 if (path === '/' || path === '/login' || path === '/cadastro' || !validAppPaths.includes(path)) {
                      safePushState('/dashboard');
                  }
              }
         }
 
     } catch (error) {
-        console.error("Erro ao validar sessão:", error);
+        console.error("Session validation error:", error);
         if (!isPeriodicCheck) {
              setAppState('landing');
              setCurrentUser(null);
         }
     } finally {
-        if (!isPeriodicCheck) setIsLoadingAuth(false);
+        if (!isPeriodicCheck) {
+            setIsLoadingAuth(false);
+            processingAuth.current = false;
+        }
     }
-  }, []);
+  }, [checkIsExpired]);
 
   useEffect(() => {
     if (!firebaseInitialized || !auth) {
@@ -227,38 +232,30 @@ const App: React.FC = () => {
         return;
     }
 
-    try {
-        const unsubscribe = onAuthStateChanged(auth, async (user: any) => {
-          const path = window.location.pathname;
-          const isAuthPath = path === '/login' || path === '/cadastro';
+    const unsubscribe = onAuthStateChanged(auth, async (user: any) => {
+      const path = window.location.pathname;
+      const isAuthPath = path === '/login' || path === '/cadastro';
 
-          if (user) {
-            // Se estivermos em uma rota de Auth (Login/Cadastro), NÃO chamamos a validação automática.
-            // Deixamos o componente Auth.tsx chamar o handleLoginSuccess no momento certo.
-            if (!isAuthPath || appState === 'app') {
-                await validateUserSession(user.uid);
-            } else {
-                setIsLoadingAuth(false);
-            }
-          } else {
-            setCurrentUser(null);
-            // Se o usuário foi deletado ou deslogou, mas ainda estamos na tela de cadastro/login, NÃO voltamos para landing
-            if (!isAuthPath && path !== '/obrigado') {
-                setAppState('landing');
-            }
+      if (user) {
+        // Só valida automaticamente se não estiver no meio de um processo de login/cadastro manual
+        if (!isAuthPath || appState === 'app') {
+            await validateUserSession(user.uid);
+        } else {
             setIsLoadingAuth(false);
-          }
-        });
-
-        return () => unsubscribe(); 
-    } catch (e) {
-        console.error("Critical Auth Error:", e);
+        }
+      } else {
+        setCurrentUser(null);
+        if (!isAuthPath && path !== '/obrigado') {
+            setAppState('landing');
+        }
         setIsLoadingAuth(false);
-    }
+      }
+    });
+
+    return () => unsubscribe(); 
   }, [validateUserSession, appState]);
 
   const handleLoginSuccess = useCallback((user: User) => {
-    setIsLoadingAuth(true);
     validateUserSession(user.uid); 
   }, [validateUserSession]);
 
@@ -270,16 +267,16 @@ const App: React.FC = () => {
           } catch(e) {}
       }
       await logout();
-      setAppState('landing');
       setCurrentUser(null);
+      setAppState('landing');
       safePushState('/'); 
   }, [currentUser]);
 
   const handleRenewSubscription = useCallback(async () => {
       await logout();
       setLandingScrollTarget('pricing'); 
-      setAppState('landing');
       setCurrentUser(null);
+      setAppState('landing');
       safePushState('/');
   }, []);
 
@@ -292,8 +289,7 @@ const App: React.FC = () => {
       setAuthRenderKey(Date.now());
       setAuthInitialView(view);
       setAppState('auth');
-      const newPath = view === 'login' ? '/login' : '/cadastro';
-      safePushState(newPath);
+      safePushState(view === 'login' ? '/login' : '/cadastro');
     }
   }, []);
   
@@ -329,49 +325,67 @@ const App: React.FC = () => {
 
   return (
     <ToastProvider> 
-      {appState === 'landing' && <LandingPage 
-        onStart={handleStart} 
-        scrollTarget={landingScrollTarget} 
-        clearScrollTarget={() => setLandingScrollTarget(null)} 
-        onOpenSupport={() => setIsSupportChatOpen(true)}
-      />}
-      
-      {appState === 'auth' && (
-        <Auth 
-            key={authRenderKey} 
-            onLoginSuccess={handleLoginSuccess} 
-            onBack={handleBackFromAuth} 
-            initialView={authInitialView} 
-        />
-      )}
+      <AnimatePresence mode="wait">
+        {appState === 'landing' && (
+            <motion.div key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <LandingPage 
+                    onStart={handleStart} 
+                    scrollTarget={landingScrollTarget} 
+                    clearScrollTarget={() => setLandingScrollTarget(null)} 
+                    onOpenSupport={() => setIsSupportChatOpen(true)}
+                />
+            </motion.div>
+        )}
+        
+        {appState === 'auth' && (
+            <motion.div key="auth" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <Auth 
+                    key={authRenderKey} 
+                    onLoginSuccess={handleLoginSuccess} 
+                    onBack={handleBackFromAuth} 
+                    initialView={authInitialView} 
+                />
+            </motion.div>
+        )}
 
-      {appState === 'thankyou' && (
-        <ThankYouPage onContinue={() => handleStart('login')} />
-      )}
+        {appState === 'thankyou' && (
+            <motion.div key="thankyou" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <ThankYouPage onContinue={() => handleStart('login')} />
+            </motion.div>
+        )}
 
-      {appState === 'expired' && (
-        <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-           <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
-              <h2 className="text-2xl font-bold text-gray-800 mb-3">Assinatura Expirada</h2>
-              <p className="text-gray-600 mb-6">O período de acesso da sua conta encerrou.</p>
-              <div className="space-y-3">
-                 <button onClick={handleRenewSubscription} className="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg">Renovar Agora</button>
-                  <button onClick={handleLogout} className="w-full bg-gray-100 text-gray-600 font-semibold py-3 px-6 rounded-lg">Sair da Conta</button>
-              </div>
-           </div>
-        </div>
-      )}
-      
-      {appState === 'app' && currentUser && (
-        <MainAppContent 
-          currentUser={currentUser} 
-          onOpenGlobalPrivacyPolicy={() => setIsPrivacyPolicyModalOpen(true)} 
-          onOpenGlobalTermsOfService={() => setIsTermsOfServiceModalOpen(true)} 
-          expirationWarning={expirationWarning} 
-          onOpenSupport={() => setIsSupportChatOpen(true)} 
-          onViewChange={setCurrentAppView} 
-        />
-      )}
+        {appState === 'expired' && (
+            <motion.div key="expired" className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+               <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full text-center border border-gray-100">
+                  <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <span className="material-symbols-outlined text-3xl">event_busy</span>
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-3">Assinatura Expirada</h2>
+                  <p className="text-gray-600 mb-8 leading-relaxed">
+                      Sua assinatura encerrou ou sua conta ainda não possui um plano ativo. 
+                      Para continuar utilizando o MeuGasto, escolha um plano.
+                  </p>
+                  <div className="space-y-3">
+                     <button onClick={handleRenewSubscription} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition-all active:scale-95">Ver Planos de Acesso</button>
+                      <button onClick={handleLogout} className="w-full bg-gray-50 hover:bg-gray-100 text-gray-600 font-bold py-3 rounded-xl transition-all">Sair da Conta</button>
+                  </div>
+               </div>
+            </motion.div>
+        )}
+        
+        {appState === 'app' && currentUser && (
+            <motion.div key="app" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <MainAppContent 
+                    currentUser={currentUser} 
+                    onOpenGlobalPrivacyPolicy={() => setIsPrivacyPolicyModalOpen(true)} 
+                    onOpenGlobalTermsOfService={() => setIsTermsOfServiceModalOpen(true)} 
+                    expirationWarning={expirationWarning} 
+                    onOpenSupport={() => setIsSupportChatOpen(true)} 
+                    onViewChange={setCurrentAppView} 
+                />
+            </motion.div>
+        )}
+      </AnimatePresence>
 
       <PrivacyPolicyModal isOpen={isPrivacyPolicyModalOpen} onClose={() => setIsPrivacyPolicyModalOpen(false)} />
       <TermsOfServiceModal isOpen={isTermsOfServiceModalOpen} onClose={() => setIsTermsOfServiceModalOpen(false)} />
