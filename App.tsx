@@ -25,38 +25,26 @@ const App: React.FC = () => {
   const [landingScrollTarget, setLandingScrollTarget] = useState<string | null>(null); 
   
   const [authRenderKey, setAuthRenderKey] = useState(Date.now());
-
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true); 
   const [expirationWarning, setExpirationWarning] = useState<{ show: boolean; days: number }>({ show: false, days: 0 });
 
-  // Modal States Globais
   const [isPrivacyPolicyModalOpen, setIsPrivacyPolicyModalOpen] = useState(false);
   const [isTermsOfServiceModalOpen, setIsTermsOfServiceModalOpen] = useState(false);
   const [isSupportChatOpen, setIsSupportChatOpen] = useState(false); 
-  
   const [currentAppView, setCurrentAppView] = useState<View>('dashboard');
-
-  // Ref para evitar loops de processamento em transições rápidas
-  const processingAuth = useRef(false);
 
   const safePushState = (path: string) => {
     try {
         if (window.location.pathname !== path) {
             window.history.pushState({}, '', path);
         }
-    } catch (e) {
-        console.warn('History pushState failed:', e);
-    }
+    } catch (e) {}
   };
 
-  // Helper para verificar expiração/assinatura ausente de forma síncrona
   const checkIsExpired = useCallback((userData: User | null): boolean => {
     if (!userData) return false;
-    // Admins não expiram
     if (['admin', 'super_admin', 'operational_admin', 'support_admin'].includes(userData.role)) return false;
-    
-    // Se não tem data de expiração, é tratado como não assinado/expirado (a menos que seja free tier, mas aqui o app é pago)
     if (!userData.subscriptionExpiresAt) return true;
 
     const today = new Date();
@@ -66,256 +54,165 @@ const App: React.FC = () => {
     return expiryDate < today;
   }, []);
 
-  // Monitor de presença
+  // 1. Monitor de Presença
   useEffect(() => {
-    if (appState !== 'app' || !currentUser?.uid || !currentUser?.createdAt) return;
-
+    if (appState !== 'app' || !currentUser?.uid) return;
     const updatePresence = async () => {
         try {
             const userRef = doc(db, 'users', currentUser.uid);
             await updateDoc(userRef, { lastSeen: serverTimestamp() });
-            const ticketRef = doc(db, 'tickets', currentUser.uid);
-            updateDoc(ticketRef, { userLastActive: serverTimestamp() }).catch(() => {});
-        } catch (e) {
-            if (!(e as any).message?.includes('No document to update')) {
-                console.error("Presence error:", e);
-            }
-        }
+        } catch (e) {}
     };
-
     updatePresence();
     const interval = setInterval(updatePresence, 60000);
     return () => clearInterval(interval);
-  }, [appState, currentUser?.uid, currentUser?.createdAt]);
+  }, [appState, currentUser?.uid]);
 
-  // Gerenciador de Rotas e Sincronização de Estado
+  // 2. ÚNICA FONTE DE VERDADE PARA ROTEAMENTO E ESTADO
   useEffect(() => {
-    const handleNavigation = () => {
+    if (isLoadingAuth) return;
+
+    const syncStateWithUrl = () => {
         const path = window.location.pathname;
+        const isAuthPath = path === '/login' || path === '/cadastro';
+        const isAppPath = ['/dashboard', '/lancamentos', '/relatorios', '/perfil', '/planejamento', '/admin'].includes(path);
         
-        if (path === '/login') {
-            setAppState('auth');
-            setAuthInitialView('login');
-        } else if (path === '/cadastro') {
-            setAppState('auth');
-            setAuthInitialView('register');
-        } else if (path === '/obrigado') {
-            setAppState('thankyou');
-        } else if (path === '/') {
-            // Se o usuário já estiver logado e na landing, mas não estiver expirado, manda pro app
-            if (currentUser && !checkIsExpired(currentUser)) {
-                setAppState('app');
-                safePushState('/dashboard');
+        if (!currentUser) {
+            // USUÁRIO DESLOGADO
+            if (path === '/obrigado') setAppState('thankyou');
+            else if (isAuthPath) {
+                setAppState('auth');
+                setAuthInitialView(path === '/login' ? 'login' : 'register');
             } else {
                 setAppState('landing');
+                if (isAppPath) safePushState('/');
             }
-        } else if (['/dashboard', '/lancamentos', '/relatorios', '/perfil', '/planejamento', '/admin'].includes(path)) {
-            if (currentUser) {
-                if (checkIsExpired(currentUser)) {
+        } else {
+            // USUÁRIO LOGADO
+            const isExpired = checkIsExpired(currentUser);
+
+            if (isExpired) {
+                // LOGADO MAS EXPIRADO
+                if (isAppPath) {
                     setAppState('expired');
+                } else if (isAuthPath) {
+                    setAppState('expired');
+                    safePushState('/dashboard'); // Força a cair no bloco 'expired'
+                } else if (path === '/obrigado') {
+                    setAppState('thankyou');
+                } else {
+                    setAppState('landing');
+                }
+            } else {
+                // LOGADO E ATIVO
+                if (isAppPath) {
+                    setAppState('app');
+                } else if (isAuthPath || path === '/') {
+                    setAppState('app');
+                    safePushState('/dashboard');
+                } else if (path === '/obrigado') {
+                    setAppState('thankyou');
                 } else {
                     setAppState('app');
+                    safePushState('/dashboard');
                 }
-            } else if (!isLoadingAuth) {
-                // Se não tem user e tentou entrar em rota protegida, volta pra landing
-                setAppState('landing');
-                safePushState('/');
             }
         }
     };
 
-    handleNavigation();
-    window.addEventListener('popstate', handleNavigation);
-    return () => window.removeEventListener('popstate', handleNavigation);
+    syncStateWithUrl();
+    window.addEventListener('popstate', syncStateWithUrl);
+    return () => window.removeEventListener('popstate', syncStateWithUrl);
   }, [currentUser, isLoadingAuth, checkIsExpired]);
 
-  const validateUserSession = useCallback(async (uid: string, isPeriodicCheck: boolean = false) => {
-    if (processingAuth.current && !isPeriodicCheck) return;
-    if (!isPeriodicCheck) {
-        setIsLoadingAuth(true);
-        processingAuth.current = true;
-    }
-
-    setExpirationWarning({ show: false, days: 0 });
-
+  // 3. Validação de Sessão (Apenas Dados)
+  const validateUserSession = useCallback(async (uid: string) => {
     try {
         const docRef = doc(db, 'users', uid);
         const docSnap = await getDoc(docRef);
-        let userData: User;
-
+        
         if (docSnap.exists()) {
-            userData = { ...docSnap.data(), uid } as User;
-        } else {
-            const isAuthPath = window.location.pathname === '/login' || window.location.pathname === '/cadastro';
-            if (isAuthPath) {
-                setIsLoadingAuth(false);
-                processingAuth.current = false;
+            const userData = { ...docSnap.data(), uid } as User;
+            if (userData.status === 'blocked') {
+                await auth.signOut();
+                setCurrentUser(null);
+                alert("Sua conta está bloqueada.");
                 return;
             }
+            setCurrentUser(userData);
 
-            userData = {
-                uid: uid,
-                name: auth.currentUser?.displayName || 'Usuário',
-                email: auth.currentUser?.email || '',
-                role: 'user',
-                status: 'active',
-                profileImage: DEFAULT_PROFILE_IMAGE,
-                reminderSettings: DEFAULT_REMINDER_SETTINGS,
-                createdAt: new Date().toISOString(),
-                subscriptionExpiresAt: null
-            };
-        }
-
-        if (userData.status === 'blocked') {
-            await auth.signOut();
-            setCurrentUser(null);
-            setAppState('landing');
-            safePushState('/'); 
-            if (!isPeriodicCheck) alert("Sua conta está bloqueada.");
-            setIsLoadingAuth(false);
-            processingAuth.current = false;
-            return;
-        }
-
-        const isExpired = checkIsExpired(userData);
-        setCurrentUser(userData);
-
-        if (isExpired) {
-            setAppState('expired');
-            setIsLoadingAuth(false);
-            processingAuth.current = false;
-            return; 
-        }
-
-        // Aviso de expiração próxima (5 dias)
-        if (userData.subscriptionExpiresAt && !['admin', 'super_admin', 'operational_admin', 'support_admin'].includes(userData.role)) {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const [year, month, day] = userData.subscriptionExpiresAt.split('-').map(Number);
-            const expiryDate = new Date(year, month - 1, day);
-            const diffTime = expiryDate.getTime() - today.getTime();
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            
-            if (diffDays >= 0 && diffDays <= 5) {
-                setExpirationWarning({ show: true, days: diffDays });
+            // Calcula avisos de expiração
+            if (userData.subscriptionExpiresAt && !['admin', 'super_admin', 'operational_admin', 'support_admin'].includes(userData.role)) {
+                const today = new Date(); today.setHours(0, 0, 0, 0);
+                const [year, month, day] = userData.subscriptionExpiresAt.split('-').map(Number);
+                const expiryDate = new Date(year, month - 1, day);
+                const diffDays = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                if (diffDays >= 0 && diffDays <= 5) setExpirationWarning({ show: true, days: diffDays });
             }
+        } else {
+            // Perfil novo sendo criado ou em fluxo de auth
+            setCurrentUser({
+                uid, name: auth.currentUser?.displayName || 'Usuário', email: auth.currentUser?.email || '',
+                role: 'user', status: 'active', profileImage: DEFAULT_PROFILE_IMAGE,
+                reminderSettings: DEFAULT_REMINDER_SETTINGS, createdAt: new Date().toISOString(),
+                subscriptionExpiresAt: null
+            });
         }
-        
-        if (!isPeriodicCheck) {
-             const path = window.location.pathname;
-             if (path !== '/obrigado') {
-                 setAppState('app');
-                 const validAppPaths = ['/dashboard', '/lancamentos', '/relatorios', '/perfil', '/planejamento', '/admin'];
-                 if (path === '/' || path === '/login' || path === '/cadastro' || !validAppPaths.includes(path)) {
-                     safePushState('/dashboard');
-                 }
-             }
-        }
-
     } catch (error) {
-        console.error("Session validation error:", error);
-        if (!isPeriodicCheck) {
-             setAppState('landing');
-             setCurrentUser(null);
-        }
+        console.error("Auth sync error:", error);
     } finally {
-        if (!isPeriodicCheck) {
-            setIsLoadingAuth(false);
-            processingAuth.current = false;
-        }
+        setIsLoadingAuth(false);
     }
-  }, [checkIsExpired]);
+  }, []);
 
   useEffect(() => {
-    if (!firebaseInitialized || !auth) {
-        setIsLoadingAuth(false);
-        return;
-    }
-
-    const unsubscribe = onAuthStateChanged(auth, async (user: any) => {
-      const path = window.location.pathname;
-      const isAuthPath = path === '/login' || path === '/cadastro';
-
+    if (!firebaseInitialized || !auth) return;
+    return onAuthStateChanged(auth, (user: any) => {
       if (user) {
-        // Só valida automaticamente se não estiver no meio de um processo de login/cadastro manual
-        if (!isAuthPath || appState === 'app') {
-            await validateUserSession(user.uid);
-        } else {
-            setIsLoadingAuth(false);
-        }
+        validateUserSession(user.uid);
       } else {
         setCurrentUser(null);
-        if (!isAuthPath && path !== '/obrigado') {
-            setAppState('landing');
-        }
         setIsLoadingAuth(false);
       }
     });
-
-    return () => unsubscribe(); 
-  }, [validateUserSession, appState]);
-
-  const handleLoginSuccess = useCallback((user: User) => {
-    validateUserSession(user.uid); 
   }, [validateUserSession]);
 
-  const handleLogout = useCallback(async () => {
-      if (currentUser?.uid) {
-          try {
-              const userRef = doc(db, 'users', currentUser.uid);
-              await updateDoc(userRef, { lastSeen: new Date(0) }); 
-          } catch(e) {}
-      }
+  const handleLoginSuccess = (user: User) => {
+    setCurrentUser(user);
+    // O useEffect de roteamento cuidará do redirecionamento
+  };
+
+  const handleLogout = async () => {
       await logout();
       setCurrentUser(null);
       setAppState('landing');
       safePushState('/'); 
-  }, [currentUser]);
+  };
 
-  const handleRenewSubscription = useCallback(async () => {
+  const handleRenewSubscription = async () => {
       await logout();
-      setLandingScrollTarget('pricing'); 
       setCurrentUser(null);
+      setLandingScrollTarget('pricing'); 
       setAppState('landing');
       safePushState('/');
-  }, []);
+  };
 
-  const handleStart = useCallback((view: 'login' | 'register' | 'privacy' | 'terms') => {
-    if (view === 'privacy') {
-      setIsPrivacyPolicyModalOpen(true);
-    } else if (view === 'terms') {
-      setIsTermsOfServiceModalOpen(true);
-    } else {
+  const handleStart = (view: 'login' | 'register' | 'privacy' | 'terms') => {
+    if (view === 'privacy') setIsPrivacyPolicyModalOpen(true);
+    else if (view === 'terms') setIsTermsOfServiceModalOpen(true);
+    else {
       setAuthRenderKey(Date.now());
       setAuthInitialView(view);
       setAppState('auth');
       safePushState(view === 'login' ? '/login' : '/cadastro');
     }
-  }, []);
+  };
   
-  const handleBackFromAuth = useCallback(() => {
-      setAppState('landing');
-      safePushState('/');
-  }, []);
-
-  if (!firebaseInitialized || firebaseInitializationError) {
-      return (
-          <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center">
-              <div className="text-red-500 mb-6 bg-red-100 p-4 rounded-full">
-                  <span className="material-symbols-outlined text-5xl">cloud_off</span>
-              </div>
-              <h1 className="text-2xl font-bold text-gray-800 mb-2">Erro de Conexão</h1>
-              <p className="text-gray-600 max-w-md mb-6">Não foi possível inicializar os serviços.</p>
-              <button onClick={() => window.location.reload()} className="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md">Tentar Novamente</button>
-          </div>
-      );
-  }
-
   if (isLoadingAuth) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center flex-col">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-        <p className="text-gray-600 font-medium animate-pulse">Carregando...</p>
+        <p className="text-gray-600 font-medium animate-pulse">Sincronizando...</p>
       </div>
     );
   }
@@ -342,7 +239,7 @@ const App: React.FC = () => {
                 <Auth 
                     key={authRenderKey} 
                     onLoginSuccess={handleLoginSuccess} 
-                    onBack={handleBackFromAuth} 
+                    onBack={() => { setAppState('landing'); safePushState('/'); }} 
                     initialView={authInitialView} 
                 />
             </motion.div>
