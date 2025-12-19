@@ -1,3 +1,4 @@
+
 import type { User, UserRole } from '../types';
 import { auth, db, googleProvider, firebaseConfig } from './firebaseService';
 // @ts-ignore
@@ -32,7 +33,7 @@ export const register = async (name: string, email: string, password: string, ph
 
         const cleanCpf = cpf.replace(/\D/g, '');
         if (!isValidCPF(cleanCpf)) {
-            return { success: false, message: 'CPF inválido.' };
+            return { success: false, message: 'Este número de CPF parece inválido. Verifique os dígitos.' };
         }
 
         const cleanPhone = phone.replace(/\D/g, '');
@@ -40,7 +41,7 @@ export const register = async (name: string, email: string, password: string, ph
             return { success: false, message: 'Número de celular inválido.' };
         }
 
-        // 1. Cria o usuário no Auth PRIMEIRO para obter o UID e estar autenticado para consultar o Firestore
+        // 1. Cria o usuário no Auth PRIMEIRO para obter permissão de leitura temporária no Firestore
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const firebaseUser = userCredential.user;
 
@@ -51,9 +52,12 @@ export const register = async (name: string, email: string, password: string, ph
             const querySnapshot = await getDocs(q);
 
             if (!querySnapshot.empty) {
-                // CPF Duplicado: Deleta o usuário do Auth e retorna erro
+                // CPF Duplicado: Deleta o usuário do Auth e retorna erro explícito
                 await deleteUser(firebaseUser);
-                return { success: false, message: 'Este CPF já está cadastrado em outra conta.' };
+                return { 
+                    success: false, 
+                    message: 'O CPF informado já está vinculado a outra conta. Tente fazer login ou use outro CPF.' 
+                };
             }
 
             // 3. CPF Único: Prossegue salvando os dados
@@ -78,17 +82,17 @@ export const register = async (name: string, email: string, password: string, ph
             return { success: true, message: 'Cadastro realizado com sucesso!', user: newUser };
 
         } catch (innerError: any) {
-            // Se falhar ao salvar no banco ou checar CPF, remove a conta do Auth para não deixar lixo
+            // Se falhar ao salvar no banco ou checar CPF, remove a conta do Auth para permitir nova tentativa
             await deleteUser(firebaseUser);
             throw innerError;
         }
 
     } catch (error: any) {
         console.error("Firebase registration error:", error);
-        let errorMessage = 'Ocorreu um erro durante o cadastro.';
-        if (error.code === 'auth/email-already-in-use') errorMessage = 'Este email já está em uso.';
-        else if (error.code === 'auth/weak-password') errorMessage = 'A senha é muito fraca.';
-        else if (error.code === 'permission-denied') errorMessage = 'Erro de permissão no banco de dados.';
+        let errorMessage = 'Ocorreu um erro inesperado durante o cadastro.';
+        if (error.code === 'auth/email-already-in-use') errorMessage = 'Este e-mail já está em uso por outro usuário.';
+        else if (error.code === 'auth/weak-password') errorMessage = 'A senha informada é muito curta ou fraca.';
+        else if (error.code === 'permission-denied') errorMessage = 'Erro de permissão ao validar seus dados. Tente novamente.';
         return { success: false, message: errorMessage };
     }
 };

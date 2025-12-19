@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import type { User, View } from './types';
 import { DEFAULT_PROFILE_IMAGE, DEFAULT_REMINDER_SETTINGS } from './types';
@@ -32,9 +33,8 @@ const App: React.FC = () => {
   // Modal States Globais
   const [isPrivacyPolicyModalOpen, setIsPrivacyPolicyModalOpen] = useState(false);
   const [isTermsOfServiceModalOpen, setIsTermsOfServiceModalOpen] = useState(false);
-  const [isSupportChatOpen, setIsSupportChatOpen] = useState(false); // Chat global
+  const [isSupportChatOpen, setIsSupportChatOpen] = useState(false); 
   
-  // Estado local para saber a view atual dentro do App (Dashboard, Profile, etc)
   const [currentAppView, setCurrentAppView] = useState<View>('dashboard');
 
   const safePushState = (path: string) => {
@@ -47,7 +47,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Heartbeat para Status Online
   useEffect(() => {
     if (appState !== 'app' || !currentUser?.uid) return;
 
@@ -70,7 +69,6 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [appState, currentUser?.uid]);
 
-  // Initial Route Check
   useEffect(() => {
     const path = window.location.pathname;
     
@@ -82,9 +80,6 @@ const App: React.FC = () => {
         setAuthInitialView('register');
     } else if (path === '/obrigado') {
         setAppState('thankyou');
-    } else if (['/dashboard', '/lancamentos', '/relatorios', '/perfil', '/planejamento', '/admin'].includes(path)) {
-        // Se estiver em uma rota de app, setamos loading até validar a sessão
-        // A validação de sessão cuidará de mudar o appState para 'app'
     } else if (path === '/') {
         setAppState('landing');
     }
@@ -104,16 +99,13 @@ const App: React.FC = () => {
         } else if (['/dashboard', '/lancamentos', '/relatorios', '/perfil', '/planejamento', '/admin'].includes(currentPath)) {
             if (currentUser) {
                 setAppState('app');
-            } else {
-                // Se tentar acessar rota protegida sem user, vai pro login ou landing
-                // Deixa o auth listener decidir
             }
         }
     };
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [currentUser]); // Adicionado currentUser dependency para reavaliar rotas protegidas
+  }, [currentUser]);
 
   const validateUserSession = useCallback(async (uid: string, isPeriodicCheck: boolean = false) => {
     if (!isPeriodicCheck) setIsLoadingAuth(true);
@@ -127,6 +119,14 @@ const App: React.FC = () => {
         if (docSnap.exists()) {
             userData = { ...docSnap.data(), uid } as User;
         } else {
+            // Durante o cadastro, o documento pode não existir ainda se o Auth.tsx não chamou onLoginSuccess
+            // Se não for check periódico e não houver documento, só prosseguimos se não estivermos na tela de Auth
+            const isAuthPath = window.location.pathname === '/login' || window.location.pathname === '/cadastro';
+            if (isAuthPath && !isPeriodicCheck) {
+                setIsLoadingAuth(false);
+                return;
+            }
+
             userData = {
                 uid: uid,
                 name: auth.currentUser?.displayName || 'Usuário',
@@ -145,7 +145,7 @@ const App: React.FC = () => {
             setCurrentUser(null);
             setAppState('landing');
             safePushState('/'); 
-            if (!isPeriodicCheck) alert("Sua conta está bloqueada. Entre em contato com o administrador.");
+            if (!isPeriodicCheck) alert("Sua conta está bloqueada.");
             setIsLoadingAuth(false);
             return;
         }
@@ -153,18 +153,13 @@ const App: React.FC = () => {
         if (userData.role !== 'admin' && userData.subscriptionExpiresAt) {
             const today = new Date();
             today.setHours(0, 0, 0, 0); 
-
             const [year, month, day] = userData.subscriptionExpiresAt.split('-').map(Number);
             const expiryDate = new Date(year, month - 1, day);
             const diffTime = expiryDate.getTime() - today.getTime();
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
             if (diffDays < 0) {
-                setCurrentUser({
-                    ...userData,
-                    role: userData.role || 'user',
-                    status: userData.status || 'active'
-                });
+                setCurrentUser(userData);
                 setAppState('expired');
                 setIsLoadingAuth(false);
                 return; 
@@ -173,30 +168,14 @@ const App: React.FC = () => {
             }
         }
 
-        setCurrentUser({
-            ...userData,
-            role: userData.role || 'user',
-            status: userData.status || 'active'
-        });
+        setCurrentUser(userData);
         
         if (!isPeriodicCheck) {
              if (window.location.pathname !== '/obrigado') {
                  setAppState('app');
-                 
-                 // Lógica de Redirecionamento Inteligente
                  const currentPath = window.location.pathname;
                  const validAppPaths = ['/dashboard', '/lancamentos', '/relatorios', '/perfil', '/planejamento', '/admin'];
-                 
-                 // Se o usuário estiver na raiz ou login/cadastro, manda pro dashboard
-                 if (currentPath === '/' || currentPath === '/login' || currentPath === '/cadastro') {
-                     safePushState('/dashboard');
-                 } 
-                 // Se estiver em uma rota válida, mantém ela (não faz nada)
-                 else if (validAppPaths.includes(currentPath)) {
-                     // Mantém a rota atual
-                 }
-                 // Se for rota desconhecida, manda pro dashboard
-                 else {
+                 if (currentPath === '/' || currentPath === '/login' || currentPath === '/cadastro' || !validAppPaths.includes(currentPath)) {
                      safePushState('/dashboard');
                  }
              }
@@ -214,12 +193,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!firebaseInitialized) {
-        setIsLoadingAuth(false);
-        return;
-    }
-    if (!auth) {
-        console.error("Auth object is undefined.");
+    if (!firebaseInitialized || !auth) {
         setIsLoadingAuth(false);
         return;
     }
@@ -227,7 +201,16 @@ const App: React.FC = () => {
     try {
         const unsubscribe = onAuthStateChanged(auth, async (user: any) => {
           if (user) {
-            await validateUserSession(user.uid);
+            // CRÍTICO: Se estamos nas rotas de Auth, ignoramos o auto-redirecionamento do onAuthStateChanged.
+            // O componente Auth.tsx chamará handleLoginSuccess/validateUserSession quando as validações de banco terminarem.
+            const path = window.location.pathname;
+            const isAuthPath = path === '/login' || path === '/cadastro';
+            
+            if (!isAuthPath || appState === 'app') {
+                await validateUserSession(user.uid);
+            } else {
+                setIsLoadingAuth(false);
+            }
           } else {
             setCurrentUser(null);
             const path = window.location.pathname;
@@ -236,9 +219,6 @@ const App: React.FC = () => {
             }
             setIsLoadingAuth(false);
           }
-        }, (error: any) => {
-            console.error("Auth State Change Error:", error);
-            setIsLoadingAuth(false);
         });
 
         return () => unsubscribe(); 
@@ -246,20 +226,7 @@ const App: React.FC = () => {
         console.error("Critical Auth Error:", e);
         setIsLoadingAuth(false);
     }
-  }, [validateUserSession]);
-
-  useEffect(() => {
-    let interval: any;
-    if (appState === 'app' && currentUser?.uid) {
-        interval = setInterval(() => {
-            console.log("Verificando status da assinatura em segundo plano...");
-            validateUserSession(currentUser.uid, true);
-        }, 60000);
-    }
-    return () => {
-        if (interval) clearInterval(interval);
-    };
-  }, [appState, currentUser?.uid, validateUserSession]);
+  }, [validateUserSession, appState]);
 
   const handleLoginSuccess = useCallback((user: User) => {
     setIsLoadingAuth(true);
@@ -273,7 +240,6 @@ const App: React.FC = () => {
               await updateDoc(userRef, { lastSeen: new Date(0) }); 
           } catch(e) {}
       }
-      
       await logout();
       setAppState('landing');
       setCurrentUser(null);
@@ -291,7 +257,6 @@ const App: React.FC = () => {
   const handleStart = useCallback((view: 'login' | 'register' | 'privacy' | 'terms') => {
     if (view === 'privacy') {
       setIsPrivacyPolicyModalOpen(true);
-      // Não muda a URL para privacy modal, mantém onde está
     } else if (view === 'terms') {
       setIsTermsOfServiceModalOpen(true);
     } else {
@@ -308,10 +273,6 @@ const App: React.FC = () => {
       safePushState('/');
   }, []);
 
-  const onOpenGlobalPrivacyPolicy = useCallback(() => setIsPrivacyPolicyModalOpen(true), []);
-  const onOpenGlobalTermsOfService = useCallback(() => setIsTermsOfServiceModalOpen(true), []);
-  const onOpenSupportChat = useCallback(() => setIsSupportChatOpen(true), []);
-
   if (!firebaseInitialized || firebaseInitializationError) {
       return (
           <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center">
@@ -319,12 +280,8 @@ const App: React.FC = () => {
                   <span className="material-symbols-outlined text-5xl">cloud_off</span>
               </div>
               <h1 className="text-2xl font-bold text-gray-800 mb-2">Erro de Conexão</h1>
-              <p className="text-gray-600 max-w-md mb-6">
-                  Não foi possível inicializar os serviços do Firebase. Verifique sua conexão com a internet ou as configurações do projeto.
-              </p>
-              <button onClick={() => window.location.reload()} className="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md">
-                Tentar Novamente
-              </button>
+              <p className="text-gray-600 max-w-md mb-6">Não foi possível inicializar os serviços.</p>
+              <button onClick={() => window.location.reload()} className="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md">Tentar Novamente</button>
           </div>
       );
   }
@@ -338,18 +295,8 @@ const App: React.FC = () => {
     );
   }
 
-  const showChatButton = (() => {
-      if (appState === 'auth' || appState === 'thankyou') return false;
-      if (appState === 'landing') return true;
-      if (appState === 'app') {
-          return true; 
-      }
-      return false;
-  })();
-
-  const chatButtonVisibilityClass = appState === 'app' 
-      ? (currentAppView === 'profile' ? 'flex' : 'hidden md:flex') 
-      : 'flex'; 
+  const showChatButton = appState !== 'auth' && appState !== 'thankyou';
+  const chatButtonVisibilityClass = appState === 'app' && currentAppView !== 'profile' ? 'hidden md:flex' : 'flex';
 
   return (
     <ToastProvider> 
@@ -357,7 +304,7 @@ const App: React.FC = () => {
         onStart={handleStart} 
         scrollTarget={landingScrollTarget} 
         clearScrollTarget={() => setLandingScrollTarget(null)} 
-        onOpenSupport={onOpenSupportChat}
+        onOpenSupport={() => setIsSupportChatOpen(true)}
       />}
       
       {appState === 'auth' && (
@@ -375,51 +322,32 @@ const App: React.FC = () => {
 
       {appState === 'expired' && (
         <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-           <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-gray-100">
-              <div className="bg-red-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <span className="material-symbols-outlined text-4xl text-red-600">sentiment_sad</span>
-              </div>
+           <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
               <h2 className="text-2xl font-bold text-gray-800 mb-3">Assinatura Expirada</h2>
-              <p className="text-gray-600 mb-6 leading-relaxed">
-                  Olá, <span className="font-semibold">{currentUser?.name}</span>. <br/>
-                  O período de acesso da sua conta encerrou. Renove sua assinatura agora para continuar controlando suas finanças.
-              </p>
+              <p className="text-gray-600 mb-6">O período de acesso da sua conta encerrou.</p>
               <div className="space-y-3">
-                 <button onClick={handleRenewSubscription} className="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md flex items-center justify-center gap-2">
-                      <span className="material-symbols-outlined">workspace_premium</span>
-                      Renovar Agora
-                  </button>
-                  <button onClick={handleLogout} className="w-full bg-gray-100 text-gray-600 font-semibold py-3 px-6 rounded-lg hover:bg-gray-200 transition-colors">
-                      Sair da Conta
-                  </button>
+                 <button onClick={handleRenewSubscription} className="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg">Renovar Agora</button>
+                  <button onClick={handleLogout} className="w-full bg-gray-100 text-gray-600 font-semibold py-3 px-6 rounded-lg">Sair da Conta</button>
               </div>
            </div>
         </div>
       )}
+      
       {appState === 'app' && currentUser && (
         <MainAppContent 
-          key={currentUser.uid} 
           currentUser={currentUser} 
-          onOpenGlobalPrivacyPolicy={onOpenGlobalPrivacyPolicy} 
-          onOpenGlobalTermsOfService={onOpenGlobalTermsOfService} 
+          onOpenGlobalPrivacyPolicy={() => setIsPrivacyPolicyModalOpen(true)} 
+          onOpenGlobalTermsOfService={() => setIsTermsOfServiceModalOpen(true)} 
           expirationWarning={expirationWarning} 
-          onOpenSupport={onOpenSupportChat} 
+          onOpenSupport={() => setIsSupportChatOpen(true)} 
           onViewChange={setCurrentAppView} 
         />
       )}
-      {appState === 'app' && !currentUser && (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
-            <p className="ml-4 text-gray-600">Carregando dados do usuário...</p>
-        </div>
-      )}
 
-      {/* GLOBAL MODALS */}
       <PrivacyPolicyModal isOpen={isPrivacyPolicyModalOpen} onClose={() => setIsPrivacyPolicyModalOpen(false)} />
       <TermsOfServiceModal isOpen={isTermsOfServiceModalOpen} onClose={() => setIsTermsOfServiceModalOpen(false)} />
       
-      {/* SUPPORT CHAT ANIMATION LOGIC */}
-      <AnimatePresence mode="wait">
+      <AnimatePresence>
         {isSupportChatOpen ? (
             <SupportChatModal 
                 key="chat-modal"
@@ -432,32 +360,17 @@ const App: React.FC = () => {
                 <motion.button 
                     key="chat-button"
                     layoutId="support-chat-container"
-                    onClick={onOpenSupportChat}
-                    style={{ borderRadius: "50%" }}
-                    className={`fixed right-6 w-14 h-14 bg-black hover:scale-110 text-white rounded-full shadow-2xl shadow-black/40 items-center justify-center z-50 group overflow-hidden ${chatButtonVisibilityClass} ${appState === 'app' ? 'bottom-24 md:bottom-6' : 'bottom-6'}`}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setIsSupportChatOpen(true)}
+                    className={`fixed right-6 w-14 h-14 bg-black text-white rounded-full shadow-2xl items-center justify-center z-50 ${chatButtonVisibilityClass} ${appState === 'app' ? 'bottom-24 md:bottom-6' : 'bottom-6'}`}
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
-                    transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                    aria-label="Abrir Suporte"
+                    exit={{ opacity: 0, scale: 0.8 }}
                 >
-                    <div className="absolute inset-0 w-[200%] h-[200%] bg-gray-800 rounded-[40%] top-[90%] left-[-50%] z-0 liquid-wave opacity-50 pointer-events-none"></div>
-                    <div className="absolute inset-0 w-[200%] h-[200%] bg-gray-700 rounded-[45%] top-[95%] left-[-50%] z-0 liquid-wave opacity-40 pointer-events-none" style={{ animationDuration: '7s' }}></div>
-                    
-                    <div className="relative z-10">
-                        <ChatBubbleIcon className="text-2xl" />
-                    </div>
-                    
-                    <span className="absolute right-full mr-3 bg-black text-white text-xs font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                        Suporte
-                    </span>
+                    <ChatBubbleIcon className="text-2xl" />
                 </motion.button>
             )
         )}
       </AnimatePresence>
-
     </ToastProvider>
   );
 };
