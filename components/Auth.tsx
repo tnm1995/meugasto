@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { login, register, sendPasswordResetEmail } from '../services/authService';
@@ -66,9 +65,17 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
     };
 
     const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value.replace(/\D/g, '').slice(0, 11);
-        let formatted = value;
+        let value = e.target.value.replace(/\D/g, '');
+        
+        // Se o valor começar com 55 e tiver tamanho de um número completo (12 ou 13 dígitos), remove o 55
+        if (value.startsWith('55') && (value.length === 12 || value.length === 13)) {
+            value = value.substring(2);
+        }
+        
+        // Limita a 11 dígitos (DDD + 9 números)
+        value = value.slice(0, 11);
 
+        let formatted = value;
         if (value.length > 7) {
             formatted = `(${value.slice(0, 2)}) ${value.slice(2, 7)}-${value.slice(7)}`;
         } else if (value.length > 2) {
@@ -204,7 +211,6 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
     return (
         <div className="min-h-screen w-full flex bg-white overflow-hidden">
             
-            {/* LADO ESQUERDO: Formulário */}
             <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 sm:p-12 relative overflow-y-auto">
                 <div className="absolute top-6 left-6">
                     <button onClick={onBack} className="text-sm text-gray-600 hover:text-blue-600 flex items-center bg-gray-50 px-3 py-2 rounded-lg shadow-sm border border-gray-200 transition-colors" aria-label="Voltar para a página inicial">
@@ -395,7 +401,6 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
                 </div>
             </div>
 
-            {/* LADO DIREITO: Benefícios (Escondido no Mobile) */}
             <div className="hidden lg:flex w-1/2 bg-gradient-to-br from-blue-600 to-indigo-900 relative overflow-hidden flex-col justify-center items-center text-white p-12">
                 <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-white opacity-5 rounded-full blur-3xl animate-blob"></div>
                 <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-purple-500 opacity-20 rounded-full blur-3xl animate-blob animation-delay-2000"></div>

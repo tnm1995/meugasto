@@ -3,10 +3,8 @@ import { GoogleGenAI, Type } from "@google/genai";
 import type { Expense, BankTransaction, Omit } from '../types';
 import { CATEGORIES } from '../types';
 
-// Initialize the Gemini API client directly with the environment variable
-const envApiKey = process.env.API_KEY;
-const apiKey = (envApiKey && envApiKey.trim() !== '') ? envApiKey : 'dummy-key';
-const ai = new GoogleGenAI({ apiKey: apiKey });
+// Initialize the Gemini API client strictly with the environment variable per guidelines
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // Helper para limpar blocos de código Markdown (```json ... ```) da resposta
 const cleanJsonString = (str: string) => {
@@ -65,8 +63,9 @@ const bankTransactionResponseSchema = {
 
 export const extractExpenseFromImage = async (base64Image: string): Promise<Omit<Expense, 'id'>> => {
   try {
+    // Update: Use gemini-3-flash-preview as recommended for text-based extraction tasks
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: { parts: [
         { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
         { text: `Você é uma IA especializada em leitura de cupons fiscais brasileiros (NFC-e, SAT).
@@ -87,7 +86,7 @@ export const extractExpenseFromImage = async (base64Image: string): Promise<Omit
         Retorne APENAS o JSON conforme o schema.` }
       ] },
       config: {
-        responseMimeType: 'application/json',
+        responseMimeType: "application/json",
         responseSchema: expenseResponseSchema,
       },
     });
@@ -165,7 +164,7 @@ export const extractTransactionsFromPdfText = async (pdfText: string): Promise<B
       model: 'gemini-3-flash-preview',
       contents: { parts: [{ text: `Extraia transações deste extrato bancário para JSON (date YYYY-MM-DD, description, amount number, type DEBIT/CREDIT). Texto: ${pdfText}` }] },
       config: {
-        responseMimeType: 'application/json',
+        responseMimeType: "application/json",
         responseSchema: bankTransactionResponseSchema,
       },
     });

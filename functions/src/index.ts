@@ -7,21 +7,27 @@ const db = admin.firestore();
 
 const KIRVANO_TOKEN = "4f9a8c2e1d5b7f3g9h1j";
 
-export const kirvanoWebhook = functions.https.onRequest(async (req, res) => {
+// Use explicit types from firebase-functions to avoid clashes with global Request/Response types and resolve property access errors
+export const kirvanoWebhook = functions.https.onRequest(async (req: functions.https.Request, res: functions.Response) => {
+  // Fix: Property 'method' does not exist on type 'Request'.
   if (req.method !== "POST") {
+    // Fix: Property 'status' does not exist on type 'Response'.
     res.status(405).send("Method Not Allowed");
     return;
   }
 
+  // Fix: Property 'query' and 'body' do not exist on type 'Request'.
   const providedToken = req.query.token || req.body.token;
   
   if (providedToken !== KIRVANO_TOKEN) {
       console.warn("Unauthorized access attempt. Invalid Token:", providedToken);
+      // Fix: Property 'status' does not exist on type 'Response'.
       res.status(403).send("Forbidden: Invalid Token");
       return;
   }
 
   try {
+    // Fix: Property 'body' does not exist on type 'Request'.
     const data = req.body;
     console.log("Kirvano Webhook Payload:", JSON.stringify(data));
 
@@ -35,12 +41,14 @@ export const kirvanoWebhook = functions.https.onRequest(async (req, res) => {
     
     if (!approvedStatuses.includes(status)) {
         console.log(`Ignored status: ${status}.`);
+        // Fix: Property 'status' does not exist on type 'Response'.
         res.status(200).send(`Ignored status: ${status}`);
         return;
     }
 
     if (!email && !cpf) {
         console.error("No identifier (email or CPF) found in payload");
+        // Fix: Property 'status' does not exist on type 'Response'.
         res.status(400).send("User identifier required");
         return;
     }
@@ -67,6 +75,7 @@ export const kirvanoWebhook = functions.https.onRequest(async (req, res) => {
 
     if (!userDoc) {
         console.warn(`User not found in database (Email: ${email}, CPF: ${cpf})`);
+        // Fix: Property 'status' does not exist on type 'Response'.
         res.status(200).send("User not found");
         return;
     }
@@ -107,10 +116,12 @@ export const kirvanoWebhook = functions.https.onRequest(async (req, res) => {
     });
 
     console.log(`SUCCESS: User ${userDoc.id} (${userData.email || 'N/A'}) updated to ${newExpiresAtStr}.`);
+    // Fix: Property 'status' does not exist on type 'Response'.
     res.status(200).json({ success: true, message: "Subscription updated", newExpiry: newExpiresAtStr });
 
   } catch (error) {
     console.error("Critical error in webhook:", error);
+    // Fix: Property 'status' does not exist on type 'Response'.
     res.status(500).send("Internal Server Error");
   }
 });
