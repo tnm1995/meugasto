@@ -225,8 +225,8 @@ export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
 export const DEFAULT_PRICING: PricingSettings = {
   monthlyPrice: 29.90,
   annualPrice: 199.90,
-  monthlyLink: 'https://pay.kirvano.com/1f5acd83-e53a-4a80-8b72-42f87659a777',
-  annualLink: 'https://pay.kirvano.com/d5e20900-e9da-40fa-a226-03c484c321d4'
+  monthlyLink: 'https://pay.kirvano.com/1e11a33d-fa77-4983-a450-bf1871579b62',
+  annualLink: 'https://pay.kirvano.com/88970249-3079-45df-8083-26c9fe4c704c'
 };
 
 export const ROLE_LABELS: Record<UserRole, string> = {

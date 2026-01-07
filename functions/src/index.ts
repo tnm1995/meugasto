@@ -49,6 +49,26 @@ export const paymentWebhook = functions.https.onRequest(async (req: any, res: an
         return;
     }
 
+    // Calcula a nova data de expiração
+    let monthsToAdd = 1;
+    if (productName.includes("anual") || productName.includes("yearly") || productName.includes("12 meses")) {
+        monthsToAdd = 12;
+    }
+
+    const now = new Date();
+    const newExpiresAt = new Date(now);
+    newExpiresAt.setMonth(newExpiresAt.getMonth() + monthsToAdd);
+    const newExpiresAtStr = newExpiresAt.toISOString().split("T")[0];
+
+    const paymentInfo = {
+        date: new Date().toISOString(),
+        provider: "external_gateway",
+        amount: data.amount || 0,
+        transactionId: data.id || data.transaction_id || "unknown",
+        product: productName
+    };
+
+    // Tenta encontrar o usuário
     const usersRef = db.collection("users");
     let userDoc: admin.firestore.QueryDocumentSnapshot | null = null;
 
@@ -66,49 +86,47 @@ export const paymentWebhook = functions.https.onRequest(async (req: any, res: an
         }
     }
 
-    if (!userDoc) {
-        console.warn(`User not found in database (Email: ${email}, CPF: ${cpf})`);
-        res.status(200).send("User not found");
-        return;
-    }
-
-    const userData = userDoc.data();
-
-    let monthsToAdd = 1;
-    if (productName.includes("anual") || productName.includes("yearly") || productName.includes("12 meses")) {
-        monthsToAdd = 12;
-    }
-
-    let currentExpiresAt = userData.subscriptionExpiresAt ? new Date(userData.subscriptionExpiresAt) : new Date();
-    const now = new Date();
-    
-    const currentExpiresAtMidnight = new Date(currentExpiresAt);
-    currentExpiresAtMidnight.setHours(0,0,0,0);
-    const nowMidnight = new Date(now);
-    nowMidnight.setHours(0,0,0,0);
-
-    if (currentExpiresAtMidnight < nowMidnight) {
-        currentExpiresAt = now; 
-    }
-
-    currentExpiresAt.setMonth(currentExpiresAt.getMonth() + monthsToAdd);
-    const newExpiresAtStr = currentExpiresAt.toISOString().split("T")[0];
-
-    await userDoc.ref.update({
-        subscriptionExpiresAt: newExpiresAtStr,
-        status: "active",
-        updatedAt: new Date().toISOString(),
-        lastPayment: {
-            date: new Date().toISOString(),
-            provider: "external_gateway",
-            amount: data.amount || 0,
-            transactionId: data.id || data.transaction_id || "unknown",
-            product: productName
+    if (userDoc) {
+        // Usuário existe, atualiza assinatura
+        let currentExpiresAt = userDoc.data().subscriptionExpiresAt ? new Date(userDoc.data().subscriptionExpiresAt) : new Date();
+        const nowMidnight = new Date();
+        nowMidnight.setHours(0,0,0,0);
+        
+        // Se já venceu, começa de hoje
+        if (currentExpiresAt < nowMidnight) {
+            currentExpiresAt = now;
         }
-    });
 
-    console.log(`SUCCESS: User ${userDoc.id} updated to ${newExpiresAtStr}.`);
-    res.status(200).json({ success: true, message: "Subscription updated", newExpiry: newExpiresAtStr });
+        // Adiciona o tempo ao final da assinatura atual ou de hoje
+        const updatedExpiresAt = new Date(currentExpiresAt);
+        updatedExpiresAt.setMonth(updatedExpiresAt.getMonth() + monthsToAdd);
+        
+        await userDoc.ref.update({
+            subscriptionExpiresAt: updatedExpiresAt.toISOString().split("T")[0],
+            status: "active",
+            updatedAt: new Date().toISOString(),
+            lastPayment: paymentInfo
+        });
+
+        console.log(`SUCCESS: User ${userDoc.id} updated.`);
+        res.status(200).json({ success: true, message: "Subscription updated" });
+    } else {
+        // Usuário NÃO existe: Salva em 'pending_subscriptions' usando o CPF como chave
+        if (cpf) {
+            console.log(`User not found. Creating pending subscription for CPF: ${cpf}`);
+            await db.collection("pending_subscriptions").doc(cpf).set({
+                cpf: cpf,
+                email: email || null,
+                subscriptionExpiresAt: newExpiresAtStr,
+                createdAt: new Date().toISOString(),
+                lastPayment: paymentInfo
+            });
+            res.status(200).json({ success: true, message: "Pending subscription created" });
+        } else {
+            console.warn(`User not found and NO CPF provided. Cannot create pending subscription.`);
+            res.status(200).send("User not found and no CPF to link");
+        }
+    }
 
   } catch (error) {
     console.error("Critical error in webhook:", error);

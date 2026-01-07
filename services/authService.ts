@@ -3,7 +3,7 @@ import type { User, UserRole } from '../types';
 import { auth, db, googleProvider, firebaseConfig } from './firebaseService';
 // @ts-ignore
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile, sendPasswordResetEmail as firebaseSendPasswordResetEmail, signInWithPopup, getAuth, deleteUser } from 'firebase/auth';
-import { doc, setDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 // @ts-ignore
 import { initializeApp, deleteApp } from 'firebase/app';
 import { DEFAULT_PROFILE_IMAGE, DEFAULT_REMINDER_SETTINGS } from '../types';
@@ -41,19 +41,18 @@ export const register = async (name: string, email: string, password: string, ph
             return { success: false, message: 'Número de celular inválido.' };
         }
 
-        // 1. Cria o usuário no Auth PRIMEIRO para obter permissão de leitura temporária no Firestore
+        // 1. Cria o usuário no Auth PRIMEIRO
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const firebaseUser = userCredential.user;
 
         try {
-            // 2. Agora autenticado, verifica se o CPF já existe na coleção de usuários
+            // 2. Verifica se o CPF já existe na coleção de usuários
             const usersRef = collection(db, 'users');
             const q = query(usersRef, where('cpf', '==', cleanCpf));
             const querySnapshot = await getDocs(q);
 
             if (!querySnapshot.empty) {
-                // CPF Duplicado: Deleta o usuário do Auth ANTES de retornar
-                // Isso vai disparar o onAuthStateChanged(null) no App.tsx
+                // CPF Duplicado
                 await deleteUser(firebaseUser);
                 return { 
                     success: false, 
@@ -61,7 +60,23 @@ export const register = async (name: string, email: string, password: string, ph
                 };
             }
 
-            // 3. CPF Único: Prossegue salvando os dados
+            // 3. Verifica se existe uma assinatura PENDENTE para este CPF (Compra antes do cadastro)
+            let subscriptionExpiresAt = null;
+            let lastPayment = undefined;
+            
+            const pendingSubRef = doc(db, 'pending_subscriptions', cleanCpf);
+            const pendingSubSnap = await getDoc(pendingSubRef);
+
+            if (pendingSubSnap.exists()) {
+                const pendingData = pendingSubSnap.data();
+                subscriptionExpiresAt = pendingData.subscriptionExpiresAt;
+                lastPayment = pendingData.lastPayment;
+                // Remove a pendência pois já foi vinculada
+                await deleteDoc(pendingSubRef);
+                console.log("Assinatura pendente encontrada e vinculada ao novo usuário.");
+            }
+
+            // 4. Salva os dados do usuário
             await updateProfile(firebaseUser, { displayName: name });
 
             const userDocRef = doc(db, 'users', firebaseUser.uid);
@@ -76,14 +91,15 @@ export const register = async (name: string, email: string, password: string, ph
                 role: 'user', 
                 status: 'active', 
                 createdAt: new Date().toISOString(),
-                subscriptionExpiresAt: null,
+                subscriptionExpiresAt: subscriptionExpiresAt, // Usa a data da assinatura pendente se houver
+                lastPayment: lastPayment,
             };
+            
             await setDoc(userDocRef, newUser);
 
-            return { success: true, message: 'Cadastro realizado com sucesso!', user: newUser };
+            return { success: true, message: subscriptionExpiresAt ? 'Cadastro realizado! Sua assinatura foi ativada.' : 'Cadastro realizado com sucesso!', user: newUser };
 
         } catch (innerError: any) {
-            // Se falhar ao salvar no banco ou checar CPF, remove a conta do Auth para permitir nova tentativa
             try { await deleteUser(firebaseUser); } catch(e) {}
             throw innerError;
         }
