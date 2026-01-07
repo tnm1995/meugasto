@@ -59,8 +59,8 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, on
 
   const handleSubscribe = () => {
       const link = selectedPlan === 'annual'
-          ? (pricing.annualLink || 'https://pay.kirvano.com/d5e20900-e9da-40fa-a226-03c484c321d4')
-          : (pricing.monthlyLink || 'https://pay.kirvano.com/1f5acd83-e53a-4a80-8b72-42f87659a777');
+          ? (pricing.annualLink || 'https://pay.kirvano.com/88970249-3079-45df-8083-26c9fe4c704c')
+          : (pricing.monthlyLink || 'https://pay.kirvano.com/b378387a-a4c5-418b-887d-7f5f295bb61c');
       
       window.open(link, '_blank');
       onClose();

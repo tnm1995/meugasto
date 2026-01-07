@@ -562,7 +562,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, scrollTarget,
   const handleSubscribe = (plan: 'monthly' | 'annual') => {
       const link = plan === 'annual'
           ? (pricing.annualLink || 'https://pay.kirvano.com/88970249-3079-45df-8083-26c9fe4c704c')
-          : (pricing.monthlyLink || 'https://pay.kirvano.com/1e11a33d-fa77-4983-a450-bf1871579b62');
+          : (pricing.monthlyLink || 'https://pay.kirvano.com/b378387a-a4c5-418b-887d-7f5f295bb61c');
       
       window.open(link, '_blank');
   };
