@@ -108,7 +108,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                 setEditAnnualLink(pricing.annualLink || '');
             }
             if (globalSettings) {
-                setScannerMaintenance(globalSettings.scannerMaintenance);
+                setScannerMaintenance(!!globalSettings.scannerMaintenance);
             }
         }
     }, [loadingSettings, pricing, globalSettings]);
@@ -336,6 +336,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
             await logAction('Alteração de Configurações', `Preços ou Features atualizados.`);
             showToast('Configurações salvas com sucesso!', 'success');
         } catch (error) {
+            console.error(error);
             showToast('Erro ao atualizar configurações.', 'error');
         } finally {
             setIsSavingPricing(false);
@@ -583,6 +584,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                 </div>
                             </div>
 
+                            {/* ... Rest of settings (pricing, links) ... */}
                             <div className="space-y-6">
                                 <div className="flex items-center gap-2 text-gray-800 font-bold border-b border-gray-100 pb-3 mb-4">
                                     <AttachMoneyIcon className="text-green-600" />
@@ -640,7 +642,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                 </div>
             )}
 
-            {/* ... (Editing User Modal same as before) ... */}
+            {/* ... (Modals remain the same) ... */}
             {editingUser && canEditUsers && ReactDOM.createPortal(
                 <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex justify-center items-center z-[9999] p-4">
                     <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full flex flex-col max-h-[90vh] overflow-hidden animate-fade-in border border-gray-200">

@@ -60,6 +60,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const { showToast } = useToast();
   const { settings } = useSystemSettings(); // Acessa feature flags
 
+  // Debug - Remover em produção se necessário, mas útil agora
+  useEffect(() => {
+      if(isOpen) console.log("Status de Manutenção do Scanner:", settings.scannerMaintenance);
+  }, [isOpen, settings.scannerMaintenance]);
+
   const resetForm = useCallback(() => {
     setFormData({ 
       localName: '', 
@@ -246,8 +251,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     }
   };
 
+  // Garante que é booleano
+  const isScannerMaintenance = settings?.scannerMaintenance === true;
+
   const handleScanClick = () => {
-    if (settings.scannerMaintenance) {
+    if (isScannerMaintenance) {
         showToast("Estamos aprimorando nossa IA de leitura. Volte em breve!", "info");
         return;
     }
@@ -326,9 +334,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   
   const inputClasses = "w-full p-3.5 bg-white text-gray-800 rounded-xl border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 disabled:bg-gray-50 disabled:text-gray-400 placeholder-gray-400";
   const itemInputClasses = "p-2.5 bg-white text-gray-800 rounded-lg border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-all";
-
-  // Scanner Button Logic
-  const isScannerMaintenance = settings.scannerMaintenance;
   
   return ReactDOM.createPortal(
     <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex justify-center items-center z-[9999] p-4" role="dialog" aria-modal="true" aria-labelledby="expense-modal-title">

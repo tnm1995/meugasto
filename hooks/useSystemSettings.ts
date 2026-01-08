@@ -26,11 +26,14 @@ export const useSystemSettings = () => {
     const globalRef = doc(db, 'settings', 'global');
     const unsubscribeGlobal = onSnapshot(globalRef, (docSnap) => {
       if (docSnap.exists()) {
-        setSettings(docSnap.data() as GlobalSettings);
+        const data = docSnap.data();
+        // Merge com defaults para garantir que campos novos não quebrem
+        setSettings({ ...DEFAULT_GLOBAL_SETTINGS, ...data });
+        console.log("Global Settings atualizadas:", data); // Debug
       } else {
         setSettings(DEFAULT_GLOBAL_SETTINGS);
       }
-      setLoading(false); // Assume loaded once we have at least one response (or defaults)
+      setLoading(false); 
     }, (error) => {
       console.warn("Erro ao buscar configurações globais:", error);
       setLoading(false);
