@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import ReactDOM from 'react-dom';
 import { db } from '../services/firebaseService';
 import { collection, getDocs, doc, updateDoc, setDoc, addDoc, serverTimestamp, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { sendPasswordResetEmail, adminCreateUser } from '../services/authService';
@@ -588,8 +589,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                 </div>
             )}
 
-            {editingUser && canEditUsers && (
-                <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+            {editingUser && canEditUsers && ReactDOM.createPortal(
+                <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex justify-center items-center z-[9999] p-4">
                     <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full flex flex-col max-h-[90vh] overflow-hidden animate-fade-in border border-gray-200">
                         {/* Header Compacto com Identidade */}
                         <div className="p-5 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center shrink-0">
@@ -751,11 +752,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
             
-            {isCreateUserModalOpen && canCreateUsers && (
-                <div className="fixed inset-0 bg-gray-900/40 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
+            {isCreateUserModalOpen && canCreateUsers && ReactDOM.createPortal(
+                <div className="fixed inset-0 bg-gray-900/40 flex justify-center items-center z-[9999] p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto animate-fade-in">
                         <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
                             <h2 className="text-xl font-bold text-gray-800">Criar Novo Usuário</h2>
@@ -782,7 +784,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                             <div className="pt-4 border-t border-gray-100"><button type="submit" disabled={isCreatingUser} className="w-full py-3.5 bg-green-600 text-white rounded-xl hover:bg-green-700 font-bold transition-all shadow-md disabled:bg-green-300 flex items-center justify-center active:scale-95">{isCreatingUser ? <span className="flex items-center"><span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>Criando...</span> : 'Criar Usuário'}</button></div>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
