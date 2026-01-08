@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo, useEffect, Suspense, lazy } from 'react';
 import type { Expense, View, User, Budget, Goal, Reminder, Omit, SavingsGoal } from '../types';
 // Importa componentes via React.lazy
@@ -187,7 +188,8 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
                 subscriptionExpiresAt: null,
                 xp: 0,
                 currentStreak: 1,
-                lastInteractionDate: getLocalDate()
+                lastInteractionDate: getLocalDate(),
+                scanCount: 0 // Init scan count
             };
             try { await setDoc(userDocRef, newUserDocData); } catch (error) { console.error("Falha ao criar perfil:", error); }
         }
@@ -226,10 +228,19 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
         xp: 0, 
         currentStreak: 0,
         createdAt: currentUser.createdAt || new Date().toISOString(),
-        subscriptionExpiresAt: currentUser.subscriptionExpiresAt || null
+        subscriptionExpiresAt: currentUser.subscriptionExpiresAt || null,
+        scanCount: 0
     };
     if (loadingUserDoc || !userDataFromFirestore) return baseProfile;
-    return { ...baseProfile, ...userDataFromFirestore, profileImage: userDataFromFirestore.profileImage || DEFAULT_PROFILE_IMAGE, reminderSettings: userDataFromFirestore.reminderSettings || DEFAULT_REMINDER_SETTINGS, xp: userDataFromFirestore.xp || 0, currentStreak: userDataFromFirestore.currentStreak || 0 };
+    return { 
+        ...baseProfile, 
+        ...userDataFromFirestore, 
+        profileImage: userDataFromFirestore.profileImage || DEFAULT_PROFILE_IMAGE, 
+        reminderSettings: userDataFromFirestore.reminderSettings || DEFAULT_REMINDER_SETTINGS, 
+        xp: userDataFromFirestore.xp || 0, 
+        currentStreak: userDataFromFirestore.currentStreak || 0,
+        scanCount: userDataFromFirestore.scanCount || 0
+    };
   }, [currentUser, userDataFromFirestore, loadingUserDoc]);
 
   const awardXp = useCallback(async (amount: number, reason: string) => {
@@ -384,7 +395,7 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - created.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays < 30; 
+    return diffDays < 7; // Changed to 7 days
   }, [currentUser.createdAt]);
 
   const isAdmin = userProfile.role && ['admin', 'super_admin', 'operational_admin', 'support_admin'].includes(userProfile.role);
@@ -490,7 +501,16 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
         </div>
 
         {/* Global Modals */}
-        <ExpenseModal isOpen={isExpenseModalOpen} onClose={() => { setIsExpenseModalOpen(false); setExpenseToEdit(null); }} onSaveExpense={onSaveExpense} expenseToEdit={expenseToEdit} initialData={initialExpenseData} onAPISetupError={handleAPISetupError} />
+        <ExpenseModal 
+            isOpen={isExpenseModalOpen} 
+            onClose={() => { setIsExpenseModalOpen(false); setExpenseToEdit(null); }} 
+            onSaveExpense={onSaveExpense} 
+            expenseToEdit={expenseToEdit} 
+            initialData={initialExpenseData} 
+            onAPISetupError={handleAPISetupError}
+            currentUser={userProfile}
+            onOpenSubscriptionModal={() => setIsSubscriptionModalFromComponent(true)} 
+        />
         <GoalModal isOpen={isGoalModalOpen} onClose={() => { setIsGoalModalOpen(false); setGoalToEdit(null); }} onSaveGoal={onSaveGoal} goalToEdit={goalToEdit} />
         <SavingsGoalModal isOpen={isSavingsModalOpen} onClose={() => { setIsSavingsModalOpen(false); setSavingsGoalToEdit(null); }} onSave={onSaveSavingsGoal} goalToEdit={savingsGoalToEdit} />
         <SubscriptionModal isOpen={isSubscriptionModalOpen} onClose={() => setIsSubscriptionModalFromComponent(false)} />

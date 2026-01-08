@@ -89,6 +89,7 @@ export const register = async (name: string, cpf: string, password: string, phon
                 createdAt: new Date().toISOString(),
                 subscriptionExpiresAt: subscriptionExpiresAt,
                 lastPayment: lastPayment || undefined,
+                scanCount: 0, // Inicializa contagem de scans
             };
             
             // Sanitização para remover undefined
@@ -154,6 +155,7 @@ export const adminCreateUser = async (name: string, email: string, password: str
             status: 'active',
             createdAt: new Date().toISOString(),
             subscriptionExpiresAt: null,
+            scanCount: 0,
         };
         
         await setDoc(userDocRef, newUserData);
@@ -236,6 +238,7 @@ export const loginWithGoogle = async (): Promise<{ success: boolean, user?: User
                 status: 'active',
                 createdAt: new Date().toISOString(),
                 subscriptionExpiresAt: null,
+                scanCount: 0,
             };
             await setDoc(userDocRef, userData);
         }

@@ -46,13 +46,27 @@ const App: React.FC = () => {
   const checkIsExpired = useCallback((userData: User | null): boolean => {
     if (!userData) return false;
     if (['admin', 'super_admin', 'operational_admin', 'support_admin'].includes(userData.role)) return false;
-    if (!userData.subscriptionExpiresAt) return true;
+    
+    // 1. Se tem data de expiração definida, valida ela
+    if (userData.subscriptionExpiresAt) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); 
+        const [year, month, day] = userData.subscriptionExpiresAt.split('-').map(Number);
+        const expiryDate = new Date(year, month - 1, day);
+        return expiryDate < today;
+    }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); 
-    const [year, month, day] = userData.subscriptionExpiresAt.split('-').map(Number);
-    const expiryDate = new Date(year, month - 1, day);
-    return expiryDate < today;
+    // 2. Se NÃO tem data (usuário novo), verifica se está no período de teste (7 dias)
+    // Se estiver no trial, NÃO está expirado.
+    if (userData.createdAt) {
+        const created = new Date(userData.createdAt);
+        const now = new Date();
+        const diffTime = Math.abs(now.getTime() - created.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays > 7; // Expira se passar de 7 dias sem assinar
+    }
+
+    return true; // Fallback: Sem data e sem createdAt é considerado expirado
   }, []);
 
   // 1. Monitor de Presença

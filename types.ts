@@ -26,6 +26,7 @@ export interface User {
   currentStreak?: number;
   lastInteractionDate?: string;
   internalNotes?: string;
+  scanCount?: number; // Controle de scans gratuitos (Limite: 3)
   lastPayment?: {
     date: string;
     amount: number;
@@ -223,9 +224,9 @@ export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
 };
 
 export const DEFAULT_PRICING: PricingSettings = {
-  monthlyPrice: 29.90,
+  monthlyPrice: 0.00, // Grátis (Teste)
   annualPrice: 199.90,
-  monthlyLink: 'https://pay.kirvano.com/b378387a-a4c5-418b-887d-7f5f295bb61c', // Link provisório de teste
+  monthlyLink: 'https://pay.kirvano.com/b378387a-a4c5-418b-887d-7f5f295bb61c', 
   annualLink: 'https://pay.kirvano.com/88970249-3079-45df-8083-26c9fe4c704c'
 };
 

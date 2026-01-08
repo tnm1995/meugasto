@@ -1,11 +1,13 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import type { Expense, Omit } from '../types';
+import type { Expense, Omit, User } from '../types';
 import { extractExpenseFromImage } from '../services/geminiService'; 
 import { CameraIcon, XMarkIcon, TrashIcon, PlusIcon, CalculateIcon, TrendingUpIcon } from './Icons';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from '../types';
 import { useToast } from '../contexts/ToastContext';
+import { db } from '../services/firebaseService'; // Import db
+import { doc, updateDoc, increment } from 'firebase/firestore'; // Import updateDoc and increment
 
 interface ExpenseModalProps {
   isOpen: boolean;
@@ -14,6 +16,8 @@ interface ExpenseModalProps {
   expenseToEdit?: Expense | null;
   initialData?: Omit<Expense, 'id'> | null;
   onAPISetupError: () => void;
+  currentUser?: User; // Add currentUser prop
+  onOpenSubscriptionModal?: () => void; // Add callback
 }
 
 const fileToBase64 = (file: File): Promise<string> => {
@@ -38,7 +42,10 @@ const formatCurrency = (value: number): string => {
   }).format(value);
 };
 
-export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSaveExpense, expenseToEdit, initialData, onAPISetupError }) => {
+export const ExpenseModal: React.FC<ExpenseModalProps> = ({ 
+    isOpen, onClose, onSaveExpense, expenseToEdit, initialData, onAPISetupError, 
+    currentUser, onOpenSubscriptionModal 
+}) => {
   const [formData, setFormData] = useState<Omit<Expense, 'id' | 'items'>>({
     localName: '', purchaseDate: new Date().toISOString().split('T')[0], total: 0, category: '', subcategory: '', isRecurring: false, paymentMethod: '', recurrenceFrequency: undefined, type: 'expense'
   });
@@ -141,8 +148,36 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
       }));
   };
 
+  const incrementScanCount = async () => {
+      if (!currentUser?.uid) return;
+      try {
+          const userRef = doc(db, 'users', currentUser.uid);
+          await updateDoc(userRef, { scanCount: increment(1) });
+      } catch (error) {
+          console.error("Failed to increment scan count:", error);
+      }
+  };
+
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    
+    // Check Scan Limit
+    if (currentUser) {
+        const isPremium = !!currentUser.subscriptionExpiresAt;
+        const scansUsed = currentUser.scanCount || 0;
+        
+        if (!isPremium && scansUsed >= 3) {
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            // Close Expense Modal first to avoid stacking issues or just show subscription
+            if (onOpenSubscriptionModal) {
+                onOpenSubscriptionModal();
+            } else {
+                showToast("Limite de scans gratuitos atingido. Assine para liberar!", "error");
+            }
+            return;
+        }
+    }
+
     if (file) {
       const objectUrl = URL.createObjectURL(file);
       setPreviewUrl(objectUrl);
@@ -192,6 +227,9 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
         setItems(Array.isArray(extractedData.items) ? extractedData.items : []);
 
         showToast('Notinha lida com sucesso! Revise os dados.', 'success');
+        
+        // Successfully scanned, increment usage
+        await incrementScanCount();
         
       } catch (e) {
         const err = e as Error;
@@ -355,6 +393,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onS
                         </div>
                         Escanear Nota Fiscal (IA)
                     </button>
+                    {/* Scanner counter for free users */}
+                    {currentUser && !currentUser.subscriptionExpiresAt && (
+                       <p className="text-[10px] text-center text-gray-400 mt-2 font-medium">
+                           Restam {Math.max(0, 3 - (currentUser.scanCount || 0))} scans gratuitos
+                       </p>
+                    )}
                 </div>
               )}
               <input type="file" accept="image/*" capture="environment" ref={fileInputRef} onChange={handleFileChange} className="hidden" />

@@ -150,6 +150,12 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
                 if (result.success) {
                     setSuccess(result.message + ' Por favor, faça o login com seu CPF.');
                     showToast(result.message, 'success');
+                    
+                    // Força a atualização da URL para /login.
+                    // Isso garante que quando o AuthState mudar (devido ao logout automático do registro),
+                    // o componente pai (App.tsx) re-renderize o Auth com a view de Login, e não Register/Landing.
+                    window.history.pushState({}, '', '/login');
+                    
                     setIsLoginView(true);
                     setPassword('');
                     setConfirmPassword('');
