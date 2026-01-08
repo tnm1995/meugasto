@@ -204,7 +204,6 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
                             <WalletIcon className="text-2xl" />
                         </div>
                         <h1 className="text-2xl font-bold text-gray-900">MeuGasto</h1>
-                        {/* Frase removida conforme solicitado */}
                     </div>
 
                     <div className="mb-8">
@@ -410,7 +409,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
 
                     <div className="space-y-5">
                         <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/10 border border-white/10 backdrop-blur-sm">
-                            <div className="bg-white/20 p-2.5 rounded-xl shrink-0">
+                            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center shrink-0 aspect-square">
                                 <SparklesIcon className="text-xl" />
                             </div>
                             <div>
@@ -420,7 +419,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
                         </div>
 
                         <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/10 border border-white/10 backdrop-blur-sm">
-                            <div className="bg-white/20 p-2.5 rounded-xl shrink-0">
+                            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center shrink-0 aspect-square">
                                 <ChartIcon className="text-xl" />
                             </div>
                             <div>
@@ -430,7 +429,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
                         </div>
 
                         <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/10 border border-white/10 backdrop-blur-sm">
-                            <div className="bg-white/20 p-2.5 rounded-xl shrink-0">
+                            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center shrink-0 aspect-square">
                                 <ShieldCheckIcon className="text-xl" />
                             </div>
                             <div>
