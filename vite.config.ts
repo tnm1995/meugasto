@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => {
     define: {
       // Define process.env.API_KEY globalmente para ser substituído em tempo de build
       // Prioriza VITE_GEMINI_API_KEY, tenta API_KEY, ou usa a chave fornecida como fallback.
-      'process.env.API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY || env.API_KEY || 'AIzaSyAGvFF-yczuGGYA6KJj-4O0Pcd7vOLyfdA')
+      'process.env.API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY || env.API_KEY || 'AIzaSyCxoflM16AOIdWq7ej3B9wkNNXaEXRwQUE')
     },
     build: {
       outDir: 'dist',
