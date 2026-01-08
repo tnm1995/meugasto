@@ -145,7 +145,7 @@ export const Profile: React.FC<ProfileProps> = ({
             <section className="relative overflow-hidden bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center h-full flex flex-col items-center justify-center">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none opacity-50"></div>
                 
-                <div className="relative z-10 flex flex-col items-center">
+                <div className="relative z-10 flex flex-col items-center w-full">
                     <div className="relative mb-6">
                         <motion.div 
                         whileHover={{ scale: 1.05 }}
@@ -175,6 +175,26 @@ export const Profile: React.FC<ProfileProps> = ({
                         <div className="text-left flex-1">
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Status da Conta</p>
                             <p className="text-sm font-extrabold text-gray-800">{levelInfo.title} <span className="text-blue-600 font-black">NV.{levelInfo.level}</span></p>
+                        </div>
+                    </div>
+
+                    {/* Novo Bloco: Status da Assinatura */}
+                    <div className="flex items-center gap-3 bg-gray-50 px-5 py-3 rounded-2xl border border-gray-100 shadow-inner w-full mt-3">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 aspect-square shadow-sm ${isPremium ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-200 text-gray-500'}`}>
+                            <PremiumIcon className="text-xl" />
+                        </div>
+                        <div className="text-left flex-1">
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Assinatura</p>
+                            <div className="flex flex-col">
+                                <p className={`text-sm font-extrabold ${isPremium ? 'text-indigo-600' : 'text-gray-600'}`}>
+                                    {isPremium ? 'Premium' : 'Gratuito'}
+                                </p>
+                                {isPremium && userProfile.subscriptionExpiresAt && (
+                                    <p className="text-[10px] text-gray-500 font-medium mt-0.5">
+                                        Vence em: <span className="font-bold text-gray-700">{new Date(userProfile.subscriptionExpiresAt).toLocaleDateString('pt-BR')}</span>
+                                    </p>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
