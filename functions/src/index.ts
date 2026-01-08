@@ -5,14 +5,15 @@ import * as admin from "firebase-admin";
 admin.initializeApp();
 const db = admin.firestore();
 
-// Token de segurança para validação do webhook (mantenha o mesmo para compatibilidade ou altere no provedor)
+// Token de segurança fornecido pelo usuário
 const PAYMENT_TOKEN = "4f9a8c2e1d5b7f3g9h1j";
 
 /**
  * Webhook genérico de processamento de pagamentos
  */
 export const paymentWebhook = functions.https.onRequest(async (req: any, res: any) => {
-  if (req.method !== "POST") {
+  // Permite GET para testes simples de navegador e POST para o webhook real
+  if (req.method !== "POST" && req.method !== "GET") {
     res.status(405).send("Method Not Allowed");
     return;
   }
@@ -25,20 +26,30 @@ export const paymentWebhook = functions.https.onRequest(async (req: any, res: an
       return;
   }
 
+  // Se for GET, retorna apenas um OK para validar que a URL está acessível
+  if (req.method === "GET") {
+      res.status(200).send("Webhook endpoint is active.");
+      return;
+  }
+
   try {
     const data = req.body;
     console.log("Payment Webhook Payload:", JSON.stringify(data));
 
     const status = (data.status || data.transaction_status || "").toUpperCase();
-    const email = data.customer?.email || data.email;
+    
+    // Tratamento de dados do cliente
+    const email = (data.customer?.email || data.email || "").trim().toLowerCase();
     const cpfRaw = data.customer?.cpf || data.cpf || ""; 
-    const cpf = cpfRaw.replace(/\D/g, "");
+    const cpf = cpfRaw.replace(/\D/g, ""); // Remove tudo que não for número
+    
     const productName = (data.product_name || data.offer_title || "").toLowerCase();
 
+    // Status considerados como Pagamento Aprovado
     const approvedStatuses = ["APPROVED", "PAID", "COMPLETED", "AUTHORIZED"];
     
     if (!approvedStatuses.includes(status)) {
-        console.log(`Ignored status: ${status}.`);
+        console.log(`Ignored status: ${status}. Only APPROVED transactions are processed.`);
         res.status(200).send(`Ignored status: ${status}`);
         return;
     }
@@ -68,36 +79,44 @@ export const paymentWebhook = functions.https.onRequest(async (req: any, res: an
         product: productName
     };
 
-    // Tenta encontrar o usuário
+    console.log(`Processing subscription for Email: ${email}, CPF: ${cpf}. Adding ${monthsToAdd} months.`);
+
+    // 1. Tenta encontrar o usuário JÁ CADASTRADO
     const usersRef = db.collection("users");
     let userDoc: admin.firestore.QueryDocumentSnapshot | null = null;
 
+    // Busca por Email
     if (email) {
         const emailSnapshot = await usersRef.where("email", "==", email).limit(1).get();
         if (!emailSnapshot.empty) {
             userDoc = emailSnapshot.docs[0];
+            console.log("User found by Email.");
         }
     }
 
+    // Se não achou por email, busca por CPF
     if (!userDoc && cpf) {
         const cpfSnapshot = await usersRef.where("cpf", "==", cpf).limit(1).get();
         if (!cpfSnapshot.empty) {
             userDoc = cpfSnapshot.docs[0];
+            console.log("User found by CPF.");
         }
     }
 
     if (userDoc) {
-        // Usuário existe, atualiza assinatura
+        // --- CENÁRIO A: Usuário já tem conta ---
+        // Atualiza a assinatura do usuário existente
+        
         let currentExpiresAt = userDoc.data().subscriptionExpiresAt ? new Date(userDoc.data().subscriptionExpiresAt) : new Date();
         const nowMidnight = new Date();
         nowMidnight.setHours(0,0,0,0);
         
-        // Se já venceu, começa de hoje
+        // Se a assinatura antiga já venceu, a nova começa a contar de hoje.
+        // Se ainda está válida, soma o tempo ao final da atual.
         if (currentExpiresAt < nowMidnight) {
             currentExpiresAt = now;
         }
 
-        // Adiciona o tempo ao final da assinatura atual ou de hoje
         const updatedExpiresAt = new Date(currentExpiresAt);
         updatedExpiresAt.setMonth(updatedExpiresAt.getMonth() + monthsToAdd);
         
@@ -108,10 +127,13 @@ export const paymentWebhook = functions.https.onRequest(async (req: any, res: an
             lastPayment: paymentInfo
         });
 
-        console.log(`SUCCESS: User ${userDoc.id} updated.`);
-        res.status(200).json({ success: true, message: "Subscription updated" });
+        console.log(`SUCCESS: User ${userDoc.id} subscription updated.`);
+        res.status(200).json({ success: true, message: "User subscription updated" });
+
     } else {
-        // Usuário NÃO existe: Salva em 'pending_subscriptions' usando o CPF como chave
+        // --- CENÁRIO B: Usuário NÃO tem conta ---
+        // Salva em 'pending_subscriptions' para ser vinculado quando ele se cadastrar no app
+        
         if (cpf) {
             console.log(`User not found. Creating pending subscription for CPF: ${cpf}`);
             await db.collection("pending_subscriptions").doc(cpf).set({
@@ -121,9 +143,10 @@ export const paymentWebhook = functions.https.onRequest(async (req: any, res: an
                 createdAt: new Date().toISOString(),
                 lastPayment: paymentInfo
             });
-            res.status(200).json({ success: true, message: "Pending subscription created" });
+            res.status(200).json({ success: true, message: "Pending subscription created. User needs to register." });
         } else {
-            console.warn(`User not found and NO CPF provided. Cannot create pending subscription.`);
+            console.warn(`User not found and NO CPF provided in payload. Cannot create pending subscription link.`);
+            // Retorna 200 para não dar erro no gateway de pagamento, mas loga o aviso
             res.status(200).send("User not found and no CPF to link");
         }
     }
