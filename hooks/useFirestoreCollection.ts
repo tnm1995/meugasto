@@ -61,6 +61,12 @@ export const useFirestoreCollection = <T extends DocumentData>(
       setData(fetchedData);
       setLoading(false);
     }, (e) => {
+      // Ignora erro de permissão durante o logout (condição de corrida)
+      if (e.code === 'permission-denied') {
+        console.debug(`Firestore (collection ${collectionName}) permission denied. Likely logout.`);
+        setLoading(false);
+        return;
+      }
       console.error(`Firestore Error (${collectionName}):`, e.code, e.message);
       setError(e);
       setLoading(false);

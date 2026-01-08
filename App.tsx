@@ -199,18 +199,23 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
-      await logout();
+      // 1. Limpa o estado da UI PRIMEIRO. Isso desmonta o MainAppContent e desativa os listeners do Firestore.
       setCurrentUser(null);
       setAppState('landing');
       safePushState('/'); 
+      
+      // 2. Só DEPOIS faz o logout no Firebase. Isso previne erros de "Permission Denied".
+      await logout();
   };
 
   const handleRenewSubscription = async () => {
-      await logout();
+      // Mesma lógica de ordem invertida
       setCurrentUser(null);
       setLandingScrollTarget('pricing'); 
       setAppState('landing');
       safePushState('/');
+      
+      await logout();
   };
 
   // Nova função para re-verificar status sem deslogar

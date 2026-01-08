@@ -1,5 +1,4 @@
 
-
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '../services/firebaseService';
 import { doc, getDoc, setDoc, onSnapshot, updateDoc, DocumentData, DocumentSnapshot } from 'firebase/firestore';
@@ -49,15 +48,18 @@ export const useFirestoreDocument = <T>(
     const unsubscribe = onSnapshot(docRef, (snapshot: DocumentSnapshot<DocumentData>) => {
       if (snapshot.exists()) {
         const fetchedData = snapshot.data() as T;
-        if (docPath.startsWith('users/')) {
-          console.log('useFirestoreDocument Debug: Profile Image from Firestore:', (fetchedData as any).profileImage?.substring(0, 50) + '...');
-        }
         setData(fetchedData);
       } else {
         setData(null);
       }
       setLoading(false);
     }, (e) => {
+      // Ignora erro de permissão durante o logout (condição de corrida)
+      if (e.code === 'permission-denied') {
+        console.debug(`Firestore (document ${docPath}) permission denied. Likely logout.`);
+        setLoading(false);
+        return;
+      }
       console.error(`Error fetching document ${docPath}:`, e);
       setError('Failed to load data.');
       setLoading(false);
