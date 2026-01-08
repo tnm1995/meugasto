@@ -2,7 +2,7 @@
 // @ts-ignore
 import { initializeApp } from 'firebase/app';
 // @ts-ignore
-import { getAuth, type Auth, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 // @ts-ignore
 import { getAnalytics } from 'firebase/analytics';
@@ -48,7 +48,6 @@ let auth: Auth;
 let db: Firestore;
 let storage: FirebaseStorage;
 let analytics: Analytics | null = null;
-const googleProvider = new GoogleAuthProvider();
 
 let firebaseInitialized = false;
 let firebaseInitializationError: any = null;
@@ -97,4 +96,4 @@ try {
   storage = {} as FirebaseStorage;
 }
 
-export { app, auth, db, storage, analytics, googleProvider, firebaseInitialized, firebaseInitializationError };
+export { app, auth, db, storage, analytics, firebaseInitialized, firebaseInitializationError };

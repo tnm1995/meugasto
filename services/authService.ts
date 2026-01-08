@@ -1,8 +1,8 @@
 
 import type { User, UserRole } from '../types';
-import { auth, db, googleProvider, firebaseConfig } from './firebaseService';
+import { auth, db, firebaseConfig } from './firebaseService';
 // @ts-ignore
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile, sendPasswordResetEmail as firebaseSendPasswordResetEmail, signInWithPopup, getAuth, deleteUser } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile, sendPasswordResetEmail as firebaseSendPasswordResetEmail, getAuth, deleteUser } from 'firebase/auth';
 import { doc, setDoc, getDoc, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 // @ts-ignore
 import { initializeApp, deleteApp } from 'firebase/app';
@@ -29,6 +29,26 @@ const isValidCPF = (cpf: string): boolean => {
 const generateAuthEmail = (cpf: string) => {
     const cleanCpf = cpf.replace(/\D/g, '');
     return `${cleanCpf}@login.meugasto`;
+};
+
+// Helper para tratar erros de API bloqueada e outros erros comuns do Auth
+const handleAuthError = (error: any): string => {
+    const code = error.code || '';
+    const message = error.message || '';
+    
+    // Erro específico reportado (403 Forbidden na API Identity Toolkit)
+    if (message.includes('requests-to-this-api-identitytoolkit') || code === 'auth/operation-not-allowed') {
+        return 'A API Key configurada não tem permissão para Autenticação (Identity Toolkit). Verifique as restrições da chave no Google Cloud Console.';
+    }
+    
+    if (code === 'auth/email-already-in-use') return 'Este CPF já está cadastrado.';
+    if (code === 'auth/weak-password') return 'A senha é muito fraca.';
+    if (code === 'auth/invalid-email') return 'Formato de dados inválido.';
+    if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') return 'CPF ou senha incorretos.';
+    if (code === 'auth/too-many-requests') return 'Muitas tentativas. Aguarde um momento e tente novamente.';
+    if (code === 'auth/network-request-failed') return 'Erro de conexão. Verifique sua internet.';
+    
+    return 'Ocorreu um erro inesperado. Tente novamente.';
 };
 
 export const register = async (name: string, cpf: string, password: string, phone: string, contactEmail: string = ''): Promise<{ success: boolean, message: string, user?: User }> => {
@@ -111,10 +131,7 @@ export const register = async (name: string, cpf: string, password: string, phon
 
     } catch (error: any) {
         console.error("Firebase registration error:", error);
-        let errorMessage = 'Ocorreu um erro inesperado durante o cadastro.';
-        if (error.code === 'auth/email-already-in-use') errorMessage = 'Este CPF já está cadastrado.';
-        else if (error.code === 'auth/weak-password') errorMessage = 'A senha é muito fraca.';
-        return { success: false, message: errorMessage };
+        return { success: false, message: handleAuthError(error) };
     }
 };
 
@@ -165,7 +182,7 @@ export const adminCreateUser = async (name: string, email: string, password: str
 
     } catch (error: any) {
         console.error("Admin create user error:", error);
-        return { success: false, message: error.message || 'Erro ao criar usuário.' };
+        return { success: false, message: handleAuthError(error) };
     } finally {
         if (secondaryApp) await deleteApp(secondaryApp);
     }
@@ -209,42 +226,7 @@ export const login = async (cpf: string, password: string): Promise<{ success: b
         return { success: true, user: userData, message: 'Login bem-sucedido!' };
     } catch (error: any) {
         console.error("Firebase login error:", error);
-        return { success: false, message: 'CPF ou senha inválidos.' };
-    }
-};
-
-export const loginWithGoogle = async (): Promise<{ success: boolean, user?: User, message: string }> => {
-    try {
-        const result = await signInWithPopup(auth, googleProvider);
-        const firebaseUser = result.user;
-        const userDocRef = doc(db, 'users', firebaseUser.uid);
-        const docSnap = await getDoc(userDocRef);
-        let userData: User;
-        if (docSnap.exists()) {
-            userData = docSnap.data() as User;
-            if (userData.status === 'blocked') {
-                await signOut(auth);
-                return { success: false, message: 'Sua conta foi bloqueada.' };
-            }
-        } else {
-            userData = {
-                uid: firebaseUser.uid,
-                name: firebaseUser.displayName || 'Usuário Google',
-                email: firebaseUser.email || '',
-                phone: '',
-                profileImage: firebaseUser.photoURL || DEFAULT_PROFILE_IMAGE,
-                reminderSettings: DEFAULT_REMINDER_SETTINGS,
-                role: 'user',
-                status: 'active',
-                createdAt: new Date().toISOString(),
-                subscriptionExpiresAt: null,
-                scanCount: 0,
-            };
-            await setDoc(userDocRef, userData);
-        }
-        return { success: true, user: userData, message: 'Login com Google realizado!' };
-    } catch (error: any) {
-        return { success: false, message: 'Erro ao entrar com Google.' };
+        return { success: false, message: handleAuthError(error) };
     }
 };
 
@@ -267,6 +249,6 @@ export const sendPasswordResetEmail = async (identifier: string): Promise<{ succ
              return { success: false, message: 'Para redefinir senha via CPF, entre em contato com o suporte.' };
         }
     } catch (error: any) {
-        return { success: false, message: 'Erro ao enviar email.' };
+        return { success: false, message: handleAuthError(error) };
     }
 };
