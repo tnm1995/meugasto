@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { XMarkIcon, CheckCircleIcon } from './Icons';
@@ -58,9 +57,10 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, on
   const annualMonthlyEquivalent = pricing.annualPrice / 12;
 
   const handleSubscribe = () => {
+      // Force test link for monthly plan
       const link = selectedPlan === 'annual'
           ? (pricing.annualLink || 'https://pay.kirvano.com/88970249-3079-45df-8083-26c9fe4c704c')
-          : (pricing.monthlyLink || 'https://pay.kirvano.com/b378387a-a4c5-418b-887d-7f5f295bb61c');
+          : 'https://pay.kirvano.com/b378387a-a4c5-418b-887d-7f5f295bb61c';
       
       window.open(link, '_blank');
       onClose();

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -375,7 +374,7 @@ const ComparisonSection = () => {
           <motion.div variants={newCardVariants} className="relative z-10 h-full">
             <div className="relative w-full h-full rounded-[2rem] overflow-hidden shadow-2xl">
                 <style>{`@keyframes rotacaodegrade { to { transform: translate(-50%, -50%) rotate(1turn); } }`}</style>
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%] z-0" style={{ background: 'conic-gradient(from 0deg at 50% 50%, transparent 0deg, #2563eb 60deg, transparent 60.1deg), conic-gradient(from 0deg at 50% 50%, transparent 180deg, #0ea5e9 240deg, transparent 240.1deg)', filter: 'blur(20px)', animation: 'rotacaodegrade 4s linear infinite' }} />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%] z-0" style={{ background: 'conic-gradient(from 0deg at 50% 50%, transparent 0deg, #2563eb 60deg, transparent 60.1deg), conic-gradient(from 0deg at 50% 50%, transparent 180deg, #2563eb 240deg, transparent 240.1deg)', filter: 'blur(20px)', animation: 'rotacaodegrade 4s linear infinite' }} />
                 <div className="relative z-10 bg-white rounded-[calc(2rem-2px)] m-[2px] p-8 sm:p-10 h-[calc(100%-4px)] flex flex-col overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 to-cyan-500"></div>
                     <motion.div initial={{ left: "-100%" }} whileInView={{ left: "200%" }} transition={{ duration: 1.5, ease: "easeInOut", delay: 0.5 }} className="absolute top-0 bottom-0 w-1/2 bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-[-20deg] pointer-events-none z-20" />
@@ -560,9 +559,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, scrollTarget,
   }, [scrollTarget, clearScrollTarget]);
 
   const handleSubscribe = (plan: 'monthly' | 'annual') => {
+      // Force test link for monthly as requested, ignoring potentially old Firestore data
       const link = plan === 'annual'
           ? (pricing.annualLink || 'https://pay.kirvano.com/88970249-3079-45df-8083-26c9fe4c704c')
-          : (pricing.monthlyLink || 'https://pay.kirvano.com/b378387a-a4c5-418b-887d-7f5f295bb61c');
+          : 'https://pay.kirvano.com/b378387a-a4c5-418b-887d-7f5f295bb61c';
       
       window.open(link, '_blank');
   };
