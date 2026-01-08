@@ -146,7 +146,7 @@ export const Profile: React.FC<ProfileProps> = ({
       
       if (diffDays <= 7) {
           trialDaysLeft = 8 - diffDays; // +1 para ser inclusivo
-          statusLabel = 'Teste Grátis';
+          statusLabel = 'Freemium';
           statusColor = 'text-orange-600';
           iconBg = 'bg-orange-100 text-orange-600';
       } else {
@@ -251,15 +251,15 @@ export const Profile: React.FC<ProfileProps> = ({
                         <div className="flex items-center justify-center sm:justify-start gap-2">
                             <PremiumIcon className={isPremium ? 'text-yellow-400 text-2xl' : 'text-blue-600 text-2xl'} />
                             <h3 className={`font-black text-xl ${!isPremium ? 'text-gray-800' : ''}`}>
-                            {isPremium ? 'Assinatura Premium' : (trialDaysLeft > 0 ? 'Período de Teste Ativo' : 'Evolua para o Premium')}
+                            {isPremium ? 'Assinatura Premium' : (trialDaysLeft > 0 ? 'Plano Freemium Ativo' : 'Evolua para o Premium')}
                             </h3>
                         </div>
                         <p className={`text-sm font-medium leading-relaxed max-w-md ${isPremium ? 'text-blue-100' : 'text-gray-500'}`}>
                             {isPremium 
                             ? `Sua assinatura vence em ${new Date(userProfile.subscriptionExpiresAt!).toLocaleDateString('pt-BR')}. Garanta mais tempo de acesso e evite interrupções nos seus relatórios.`
                             : (trialDaysLeft > 0 
-                                ? `Você tem acesso a todos os recursos Premium por mais ${trialDaysLeft} dias. Assine agora para não perder seus dados após o teste.` 
-                                : 'Seu período de teste acabou. Assine para continuar utilizando a leitura automática de notas com IA e relatórios avançados.')}
+                                ? `Você está no plano Freemium com acesso total por mais ${trialDaysLeft} dias. Assine agora para garantir seus dados.` 
+                                : 'Seu período Freemium acabou. Assine para continuar utilizando a leitura automática de notas com IA e relatórios avançados.')}
                         </p>
                     </div>
                     <button 

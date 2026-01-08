@@ -25,7 +25,8 @@ import {
     SupportAgentIcon,
     DescriptionIcon,
     ChatBubbleIcon,
-    HistoryIcon
+    HistoryIcon,
+    ProfileIcon
 } from './Icons';
 
 const formatDate = (isoDate: string | null | undefined) => {
@@ -582,49 +583,117 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
             )}
 
             {editingUser && canEditUsers && (
-                <div className="fixed inset-0 bg-gray-900/40 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto animate-fade-in border border-gray-100">
-                        <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
-                            <h2 className="text-xl font-bold text-gray-800">Gerenciar Usuário</h2>
-                            <button onClick={() => setEditingUser(null)} className="text-gray-400 hover:text-gray-600 bg-gray-50 w-10 h-10 rounded-full hover:bg-gray-100 transition-colors flex items-center justify-center shrink-0 aspect-square"><XMarkIcon className="text-xl" /></button>
+                <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full flex flex-col max-h-[90vh] overflow-hidden animate-fade-in border border-gray-200">
+                        {/* Header Compacto com Identidade */}
+                        <div className="p-5 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center shrink-0">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-full border-2 border-white shadow-sm overflow-hidden shrink-0">
+                                    <img src={editingUser.profileImage || 'https://gravatar.com/avatar/?d=mp'} alt="User" className="w-full h-full object-cover" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-gray-800 leading-tight">Editar Usuário</h2>
+                                    <p className="text-xs text-gray-500 font-mono">ID: {editingUser.uid.substring(0,8)}...</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setEditingUser(null)} className="text-gray-400 hover:text-gray-600 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200/50 transition-colors">
+                                <XMarkIcon className="text-xl" />
+                            </button>
                         </div>
-                        <div className="space-y-6">
-                            <div className="space-y-3">
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Nome</label><input type="text" value={newName} onChange={e => setNewName(e.target.value)} className={inputClasses} /></div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Email de Login</label><input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} className={inputClasses} /></div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">CPF (Somente números)</label><input type="text" value={newCpf} onChange={e => setNewCpf(e.target.value.replace(/\D/g, ''))} className={inputClasses} maxLength={11} /></div>
-                            </div>
-                            <div className="border-t border-gray-100 pt-4">
-                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2"><span className="material-symbols-outlined text-base">calendar_month</span> Controle de Assinatura</label>
-                                <div className="flex flex-col gap-3">
-                                    <input type="date" value={subscriptionDate} onChange={e => setSubscriptionDate(e.target.value)} className={inputClasses} />
-                                    <div className="grid grid-cols-4 gap-2">
-                                        <button onClick={handleGrantTrial} className="px-2 py-2 bg-orange-50 text-orange-600 text-[10px] font-bold rounded-lg hover:bg-orange-100 border border-orange-100 transition-colors">7 Dias (Trial)</button>
-                                        <button onClick={() => handleExtendSubscription(1)} className="px-2 py-2 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-lg hover:bg-blue-100 border border-blue-100 transition-colors">+1 Mês</button>
-                                        <button onClick={() => handleExtendSubscription(12)} className="px-2 py-2 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-lg hover:bg-blue-100 border border-blue-100 transition-colors">+1 Ano</button>
-                                        <button onClick={() => setSubscriptionDate('')} className="px-2 py-2 bg-purple-50 text-purple-600 text-[10px] font-bold rounded-lg hover:bg-purple-100 border border-purple-100 transition-colors">Vitalício</button>
+
+                        {/* Corpo Scrollável */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-white">
+                            
+                            {/* Seção 1: Dados Cadastrais (Grid) */}
+                            <div className="space-y-4">
+                                <h3 className="text-xs font-bold text-blue-600 uppercase tracking-widest flex items-center gap-2 border-b border-blue-100 pb-2">
+                                    <ProfileIcon className="text-sm"/> Dados Cadastrais
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1">Nome Completo</label>
+                                        <input type="text" value={newName} onChange={e => setNewName(e.target.value)} className={inputClasses} />
                                     </div>
-                                    <button onClick={handleRevokeSubscription} className="w-full py-2 bg-red-50 text-red-600 text-xs font-bold rounded-lg hover:bg-red-100 border border-red-100 transition-colors flex items-center justify-center gap-1"><span className="material-symbols-outlined text-sm">cancel</span> Cancelar Assinatura</button>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1">CPF (Somente Números)</label>
+                                        <input type="text" value={newCpf} onChange={e => setNewCpf(e.target.value.replace(/\D/g, ''))} className={inputClasses} maxLength={11} />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1">Email de Login</label>
+                                        <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} className={inputClasses} />
+                                    </div>
+                                    {canManageAdmins && (
+                                        <div className="md:col-span-2 bg-purple-50 p-3 rounded-xl border border-purple-100">
+                                            <label className="block text-xs font-bold text-purple-700 uppercase mb-1.5 ml-1 flex items-center gap-2"><AdminPanelSettingsIcon className="text-sm"/> Nível de Acesso (Role)</label>
+                                            <select value={newRole} onChange={(e) => setNewRole(e.target.value as UserRole)} className="w-full p-2 bg-white border border-purple-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none" disabled={editingUser.uid === currentUser.uid}>
+                                                <option value="user">Usuário Comprador (Padrão)</option>
+                                                <option value="support_admin">Admin Suporte</option>
+                                                <option value="operational_admin">Admin Operacional</option>
+                                                <option value="super_admin">Super Admin</option>
+                                            </select>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-                            <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
-                                <label className="block text-xs font-bold text-yellow-800 uppercase tracking-wide mb-1.5 flex items-center gap-2"><DescriptionIcon className="text-sm"/> Observações Internas (Admin)</label>
-                                <textarea value={internalNotes} onChange={e => setInternalNotes(e.target.value)} className="w-full p-3 border border-yellow-200 rounded-lg bg-white focus:ring-2 focus:ring-yellow-400 outline-none text-xs resize-none h-20 placeholder-yellow-800/30" />
-                            </div>
-                            {canManageAdmins && (
-                                <div className="border-t border-gray-100 pt-4">
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-2"><AdminPanelSettingsIcon className="text-lg" /> Função (Role)</label>
-                                    <select value={newRole} onChange={(e) => setNewRole(e.target.value as UserRole)} className="w-full p-3 border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm appearance-none" disabled={editingUser.uid === currentUser.uid}>
-                                        <option value="user">Usuário Comprador</option>
-                                        <option value="support_admin">Admin Suporte</option>
-                                        <option value="operational_admin">Admin Operacional</option>
-                                        <option value="super_admin">Super Admin</option>
-                                    </select>
+
+                            {/* Seção 2: Assinatura (Card Destacado) */}
+                            <div className="space-y-4">
+                                <h3 className="text-xs font-bold text-green-600 uppercase tracking-widest flex items-center gap-2 border-b border-green-100 pb-2">
+                                    <CalendarClockIcon className="text-sm"/> Gestão de Assinatura
+                                </h3>
+                                <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200">
+                                    <div className="flex flex-col md:flex-row gap-4 items-end mb-4">
+                                        <div className="w-full md:w-1/3">
+                                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Vencimento Atual</label>
+                                            <input type="date" value={subscriptionDate} onChange={e => setSubscriptionDate(e.target.value)} className="w-full p-2.5 bg-white border border-gray-300 rounded-lg text-sm font-mono" />
+                                        </div>
+                                        <div className="flex-1 w-full grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                            <button onClick={handleGrantTrial} className="px-2 py-2 bg-white border border-orange-200 text-orange-600 text-[10px] font-bold rounded-lg hover:bg-orange-50 shadow-sm transition-all flex flex-col items-center justify-center gap-1">
+                                                <span className="material-symbols-outlined text-sm">star</span> Trial (7d)
+                                            </button>
+                                            <button onClick={() => handleExtendSubscription(1)} className="px-2 py-2 bg-white border border-blue-200 text-blue-600 text-[10px] font-bold rounded-lg hover:bg-blue-50 shadow-sm transition-all flex flex-col items-center justify-center gap-1">
+                                                <span className="material-symbols-outlined text-sm">add</span> +1 Mês
+                                            </button>
+                                            <button onClick={() => handleExtendSubscription(12)} className="px-2 py-2 bg-white border border-indigo-200 text-indigo-600 text-[10px] font-bold rounded-lg hover:bg-indigo-50 shadow-sm transition-all flex flex-col items-center justify-center gap-1">
+                                                <span className="material-symbols-outlined text-sm">calendar_month</span> +1 Ano
+                                            </button>
+                                            <button onClick={() => setSubscriptionDate('')} className="px-2 py-2 bg-white border border-purple-200 text-purple-600 text-[10px] font-bold rounded-lg hover:bg-purple-50 shadow-sm transition-all flex flex-col items-center justify-center gap-1">
+                                                <span className="material-symbols-outlined text-sm">infinity</span> Vitalício
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="pt-3 border-t border-gray-200">
+                                        <button onClick={handleRevokeSubscription} className="text-red-600 text-xs font-bold hover:underline flex items-center gap-1">
+                                            <XMarkIcon className="text-sm"/> Revogar/Cancelar Assinatura
+                                        </button>
+                                    </div>
                                 </div>
-                            )}
-                            <div className="pt-4 border-t border-gray-100 flex flex-col gap-3">
-                                <button onClick={handlePasswordReset} className="flex items-center justify-center gap-2 w-full py-3 text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 text-sm font-bold transition-colors"><KeyIcon /> Enviar Email de Reset de Senha</button>
-                                <button onClick={handleSaveUser} className="w-full py-3.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold transition-all shadow-md active:scale-95">Salvar Alterações</button>
+                            </div>
+
+                            {/* Seção 3: Notas Internas */}
+                            <div className="space-y-2">
+                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                    <DescriptionIcon className="text-sm"/> Anotações (Admin)
+                                </h3>
+                                <textarea 
+                                    value={internalNotes} 
+                                    onChange={e => setInternalNotes(e.target.value)} 
+                                    className="w-full p-3 border border-yellow-200 bg-yellow-50/50 rounded-xl text-sm focus:ring-2 focus:ring-yellow-400 outline-none resize-none h-24 placeholder-gray-400"
+                                    placeholder="Observações sobre este usuário..."
+                                />
+                            </div>
+                        </div>
+
+                        {/* Footer Fixo */}
+                        <div className="p-5 border-t border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
+                            <button onClick={handlePasswordReset} className="text-gray-500 hover:text-gray-800 text-xs font-bold flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-200 transition-colors">
+                                <KeyIcon className="text-sm"/> Resetar Senha
+                            </button>
+                            <div className="flex gap-3">
+                                <button onClick={() => setEditingUser(null)} className="px-5 py-2.5 text-gray-600 font-bold text-sm hover:bg-gray-200 rounded-xl transition-colors">Cancelar</button>
+                                <button onClick={handleSaveUser} className="px-6 py-2.5 bg-blue-600 text-white font-bold text-sm rounded-xl hover:bg-blue-700 shadow-md transition-all active:scale-95 flex items-center gap-2">
+                                    <CheckCircleIcon className="text-lg"/> Salvar Alterações
+                                </button>
                             </div>
                         </div>
                     </div>
