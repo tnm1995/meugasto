@@ -204,7 +204,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
                             <WalletIcon className="text-2xl" />
                         </div>
                         <h1 className="text-2xl font-bold text-gray-900">MeuGasto</h1>
-                        <p className="text-gray-500 text-sm mt-1">Entre para gerenciar suas finanças.</p>
+                        {/* Frase removida conforme solicitado */}
                     </div>
 
                     <div className="mb-8">
@@ -319,14 +319,23 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
                                 {!isLoginView && (
                                     <div className={inputContainerClass}>
                                         <label className={labelClass} htmlFor="confirm-password">Confirmar Senha</label>
-                                        <input
-                                            type={showConfirmPassword ? "text" : "password"}
-                                            id="confirm-password"
-                                            value={confirmPassword}
-                                            onChange={e => setConfirmPassword(e.target.value)}
-                                            className={inputClass}
-                                            placeholder="••••••••"
-                                        />
+                                        <div className="relative">
+                                            <input
+                                                type={showConfirmPassword ? "text" : "password"}
+                                                id="confirm-password"
+                                                value={confirmPassword}
+                                                onChange={e => setConfirmPassword(e.target.value)}
+                                                className={inputClass}
+                                                placeholder="••••••••"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-blue-600 transition-colors"
+                                            >
+                                                {showConfirmPassword ? <VisibilityOffIcon className="text-lg" /> : <VisibilityIcon className="text-lg" />}
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
                             </>
