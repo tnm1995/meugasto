@@ -76,10 +76,11 @@ const App: React.FC = () => {
         const path = window.location.pathname;
         const isAuthPath = path === '/login' || path === '/cadastro';
         const isAppPath = ['/dashboard', '/lancamentos', '/relatorios', '/perfil', '/planejamento', '/admin'].includes(path);
+        const isThankYouPath = path === '/obrigado' || path === '/obrigado-kirvano';
         
         if (!currentUser) {
             // USUÁRIO DESLOGADO
-            if (path === '/obrigado') setAppState('thankyou');
+            if (isThankYouPath) setAppState('thankyou');
             else if (isAuthPath) {
                 setAppState('auth');
                 setAuthInitialView(path === '/login' ? 'login' : 'register');
@@ -98,7 +99,7 @@ const App: React.FC = () => {
                 } else if (isAuthPath) {
                     setAppState('expired');
                     safePushState('/dashboard'); // Força a cair no bloco 'expired'
-                } else if (path === '/obrigado') {
+                } else if (isThankYouPath) {
                     setAppState('thankyou');
                 } else {
                     setAppState('landing');
@@ -110,7 +111,7 @@ const App: React.FC = () => {
                 } else if (isAuthPath || path === '/') {
                     setAppState('app');
                     safePushState('/dashboard');
-                } else if (path === '/obrigado') {
+                } else if (isThankYouPath) {
                     setAppState('thankyou');
                 } else {
                     setAppState('app');
