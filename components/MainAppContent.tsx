@@ -391,12 +391,15 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
 
   const isTrialPeriod = useMemo(() => {
     if (!currentUser.createdAt) return false;
+    // Se o usuário tem uma assinatura paga ativa, não está em Trial
+    if (currentUser.subscriptionExpiresAt && new Date(currentUser.subscriptionExpiresAt) > new Date()) return false;
+    
     const created = new Date(currentUser.createdAt);
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - created.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays < 7; // Changed to 7 days
-  }, [currentUser.createdAt]);
+    return diffDays <= 7; // Ajustado para ser <= 7 (inclui o sétimo dia)
+  }, [currentUser.createdAt, currentUser.subscriptionExpiresAt]);
 
   const isAdmin = userProfile.role && ['admin', 'super_admin', 'operational_admin', 'support_admin'].includes(userProfile.role);
 

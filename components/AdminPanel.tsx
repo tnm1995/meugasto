@@ -235,6 +235,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
         setSubscriptionDate(baseDate.toISOString().split('T')[0]);
     };
 
+    // Nova função para dar 7 dias
+    const handleGrantTrial = () => {
+        const trialDate = new Date();
+        trialDate.setDate(trialDate.getDate() + 7);
+        setSubscriptionDate(trialDate.toISOString().split('T')[0]);
+        showToast('Data definida para 7 dias a partir de hoje.', 'success');
+    };
+
     const handleRevokeSubscription = () => {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
@@ -590,10 +598,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2"><span className="material-symbols-outlined text-base">calendar_month</span> Controle de Assinatura</label>
                                 <div className="flex flex-col gap-3">
                                     <input type="date" value={subscriptionDate} onChange={e => setSubscriptionDate(e.target.value)} className={inputClasses} />
-                                    <div className="grid grid-cols-3 gap-2">
-                                        <button onClick={() => handleExtendSubscription(1)} className="px-2 py-2 bg-blue-50 text-blue-600 text-xs font-bold rounded-lg hover:bg-blue-100 border border-blue-100 transition-colors">+1 Mês</button>
-                                        <button onClick={() => handleExtendSubscription(12)} className="px-2 py-2 bg-blue-50 text-blue-600 text-xs font-bold rounded-lg hover:bg-blue-100 border border-blue-100 transition-colors">+1 Ano</button>
-                                        <button onClick={() => setSubscriptionDate('')} className="px-2 py-2 bg-purple-50 text-purple-600 text-xs font-bold rounded-lg hover:bg-purple-100 border border-purple-100 transition-colors">Vitalício</button>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        <button onClick={handleGrantTrial} className="px-2 py-2 bg-orange-50 text-orange-600 text-[10px] font-bold rounded-lg hover:bg-orange-100 border border-orange-100 transition-colors">7 Dias (Trial)</button>
+                                        <button onClick={() => handleExtendSubscription(1)} className="px-2 py-2 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-lg hover:bg-blue-100 border border-blue-100 transition-colors">+1 Mês</button>
+                                        <button onClick={() => handleExtendSubscription(12)} className="px-2 py-2 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-lg hover:bg-blue-100 border border-blue-100 transition-colors">+1 Ano</button>
+                                        <button onClick={() => setSubscriptionDate('')} className="px-2 py-2 bg-purple-50 text-purple-600 text-[10px] font-bold rounded-lg hover:bg-purple-100 border border-purple-100 transition-colors">Vitalício</button>
                                     </div>
                                     <button onClick={handleRevokeSubscription} className="w-full py-2 bg-red-50 text-red-600 text-xs font-bold rounded-lg hover:bg-red-100 border border-red-100 transition-colors flex items-center justify-center gap-1"><span className="material-symbols-outlined text-sm">cancel</span> Cancelar Assinatura</button>
                                 </div>

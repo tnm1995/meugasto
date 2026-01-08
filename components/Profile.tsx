@@ -125,7 +125,36 @@ export const Profile: React.FC<ProfileProps> = ({
 
   const levelInfo = getLevelInfo(userProfile.xp || 0);
   const isAdmin = userProfile.role && ['admin', 'super_admin', 'operational_admin', 'support_admin'].includes(userProfile.role);
+  
+  // Lógica de Assinatura e Trial
   const isPremium = !!userProfile.subscriptionExpiresAt;
+  let statusLabel = 'Gratuito';
+  let statusColor = 'text-gray-600';
+  let iconBg = 'bg-gray-200 text-gray-500';
+  let trialDaysLeft = 0;
+
+  if (isPremium) {
+      statusLabel = 'Premium';
+      statusColor = 'text-indigo-600';
+      iconBg = 'bg-indigo-100 text-indigo-600';
+  } else if (userProfile.createdAt) {
+      // Cálculo do Trial
+      const created = new Date(userProfile.createdAt);
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - created.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays <= 7) {
+          trialDaysLeft = 8 - diffDays; // +1 para ser inclusivo
+          statusLabel = 'Teste Grátis';
+          statusColor = 'text-orange-600';
+          iconBg = 'bg-orange-100 text-orange-600';
+      } else {
+          statusLabel = 'Expirado';
+          statusColor = 'text-red-600';
+          iconBg = 'bg-red-100 text-red-600';
+      }
+  }
 
   if (isLoading && !userProfile.uid) { 
     return (
@@ -180,18 +209,23 @@ export const Profile: React.FC<ProfileProps> = ({
 
                     {/* Novo Bloco: Status da Assinatura */}
                     <div className="flex items-center gap-3 bg-gray-50 px-5 py-3 rounded-2xl border border-gray-100 shadow-inner w-full mt-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 aspect-square shadow-sm ${isPremium ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-200 text-gray-500'}`}>
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 aspect-square shadow-sm ${iconBg}`}>
                             <PremiumIcon className="text-xl" />
                         </div>
                         <div className="text-left flex-1">
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Assinatura</p>
                             <div className="flex flex-col">
-                                <p className={`text-sm font-extrabold ${isPremium ? 'text-indigo-600' : 'text-gray-600'}`}>
-                                    {isPremium ? 'Premium' : 'Gratuito'}
+                                <p className={`text-sm font-extrabold ${statusColor}`}>
+                                    {statusLabel}
                                 </p>
                                 {isPremium && userProfile.subscriptionExpiresAt && (
                                     <p className="text-[10px] text-gray-500 font-medium mt-0.5">
                                         Vence em: <span className="font-bold text-gray-700">{new Date(userProfile.subscriptionExpiresAt).toLocaleDateString('pt-BR')}</span>
+                                    </p>
+                                )}
+                                {!isPremium && trialDaysLeft > 0 && (
+                                    <p className="text-[10px] text-gray-500 font-medium mt-0.5">
+                                        Restam: <span className="font-bold text-orange-600">{trialDaysLeft} dias</span>
                                     </p>
                                 )}
                             </div>
@@ -217,13 +251,15 @@ export const Profile: React.FC<ProfileProps> = ({
                         <div className="flex items-center justify-center sm:justify-start gap-2">
                             <PremiumIcon className={isPremium ? 'text-yellow-400 text-2xl' : 'text-blue-600 text-2xl'} />
                             <h3 className={`font-black text-xl ${!isPremium ? 'text-gray-800' : ''}`}>
-                            {isPremium ? 'Assinatura Premium' : 'Evolua para o Premium'}
+                            {isPremium ? 'Assinatura Premium' : (trialDaysLeft > 0 ? 'Período de Teste Ativo' : 'Evolua para o Premium')}
                             </h3>
                         </div>
                         <p className={`text-sm font-medium leading-relaxed max-w-md ${isPremium ? 'text-blue-100' : 'text-gray-500'}`}>
                             {isPremium 
                             ? `Sua assinatura vence em ${new Date(userProfile.subscriptionExpiresAt!).toLocaleDateString('pt-BR')}. Garanta mais tempo de acesso e evite interrupções nos seus relatórios.`
-                            : 'Libere leitura automática de notas com IA, relatórios de auditoria profunda e backup ilimitado em tempo real.'}
+                            : (trialDaysLeft > 0 
+                                ? `Você tem acesso a todos os recursos Premium por mais ${trialDaysLeft} dias. Assine agora para não perder seus dados após o teste.` 
+                                : 'Seu período de teste acabou. Assine para continuar utilizando a leitura automática de notas com IA e relatórios avançados.')}
                         </p>
                     </div>
                     <button 
