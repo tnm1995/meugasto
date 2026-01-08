@@ -560,10 +560,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, scrollTarget,
   }, [scrollTarget, clearScrollTarget]);
 
   const handleSubscribe = (plan: 'monthly' | 'annual') => {
-      // FORCE TEST LINK FOR MONTHLY PLAN
       const link = plan === 'annual'
           ? (pricing.annualLink || 'https://pay.kirvano.com/88970249-3079-45df-8083-26c9fe4c704c')
-          : 'https://pay.kirvano.com/3340149e-e444-4f3e-9db0-6058e4cbc3c8';
+          : (pricing.monthlyLink || 'https://pay.kirvano.com/1e11a33d-fa77-4983-a450-bf1871579b62');
       
       window.open(link, '_blank');
   };
