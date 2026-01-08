@@ -37,22 +37,20 @@ export const register = async (name: string, email: string, password: string, ph
         }
 
         const cleanPhone = phone.replace(/\D/g, '');
-        if (cleanPhone.length < 10 || cleanPhone.length > 11) {
-            return { success: false, message: 'Número de celular inválido.' };
-        }
+        const cleanEmail = email.trim().toLowerCase(); // Padronização
 
         // 1. Cria o usuário no Auth PRIMEIRO
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
         const firebaseUser = userCredential.user;
 
         try {
-            // 2. Verifica se o CPF já existe na coleção de usuários
+            // 2. Verifica duplicidade de CPF (Safety Check)
             const usersRef = collection(db, 'users');
             const q = query(usersRef, where('cpf', '==', cleanCpf));
             const querySnapshot = await getDocs(q);
 
             if (!querySnapshot.empty) {
-                // CPF Duplicado
+                // CPF Duplicado - Rollback
                 await deleteUser(firebaseUser);
                 return { 
                     success: false, 
@@ -60,10 +58,11 @@ export const register = async (name: string, email: string, password: string, ph
                 };
             }
 
-            // 3. Verifica se existe uma assinatura PENDENTE para este CPF (Compra antes do cadastro)
+            // 3. APROVISIONAMENTO: Verifica assinatura PENDENTE pelo CPF
             let subscriptionExpiresAt = null;
             let lastPayment = null; 
             
+            // Busca direta pelo ID do documento (CPF) - Muito mais rápido e seguro
             const pendingSubRef = doc(db, 'pending_subscriptions', cleanCpf);
             const pendingSubSnap = await getDoc(pendingSubRef);
 
@@ -72,13 +71,12 @@ export const register = async (name: string, email: string, password: string, ph
             if (pendingSubSnap.exists()) {
                 const pendingData = pendingSubSnap.data();
                 subscriptionExpiresAt = pendingData.subscriptionExpiresAt || null;
-                // Garante que lastPayment nunca seja undefined
                 lastPayment = pendingData.lastPayment || null;
                 
                 // Remove a pendência pois já foi vinculada
                 await deleteDoc(pendingSubRef);
-                console.log("Assinatura pendente encontrada e vinculada ao novo usuário.");
-                successMessage = 'Cadastro realizado! Sua assinatura foi identificada e vinculada.';
+                console.log("Assinatura pendente vinculada ao novo usuário via CPF.");
+                successMessage = 'Cadastro realizado! Sua assinatura foi localizada e ativada.';
             }
 
             // 4. Salva os dados do usuário
@@ -89,7 +87,7 @@ export const register = async (name: string, email: string, password: string, ph
             const newUser: User = { 
                 uid: firebaseUser.uid, 
                 name, 
-                email, 
+                email: cleanEmail, 
                 phone: `+55${cleanPhone}`,
                 cpf: cleanCpf,
                 profileImage: DEFAULT_PROFILE_IMAGE,
@@ -101,19 +99,13 @@ export const register = async (name: string, email: string, password: string, ph
                 lastPayment: lastPayment || undefined,
             };
             
-            // Sanitização para Firestore
+            // Sanitização
             const firestoreData = JSON.parse(JSON.stringify(newUser));
-            if (lastPayment === undefined || lastPayment === null) {
-                delete firestoreData.lastPayment;
-            } else {
-                firestoreData.lastPayment = lastPayment;
-            }
+            if (!lastPayment) delete firestoreData.lastPayment;
 
             await setDoc(userDocRef, firestoreData);
 
-            // IMPORTANTE: Desloga o usuário imediatamente após criar a conta.
-            // Isso evita que o App.tsx tente carregar o perfil antes que os dados estejam consistentes,
-            // e força o usuário a fazer o login manual, garantindo que ele veja a mensagem de sucesso.
+            // Desloga para garantir refresh completo na próxima entrada
             await signOut(auth);
 
             return { success: true, message: successMessage };
@@ -121,20 +113,14 @@ export const register = async (name: string, email: string, password: string, ph
         } catch (innerError: any) {
             console.error("Erro interno no cadastro (rollback):", innerError);
             try { await deleteUser(firebaseUser); } catch(e) {}
-            
-            if (innerError.code === 'invalid-argument' && innerError.message.includes('undefined')) {
-                 return { success: false, message: 'Erro técnico: Dados inválidos no processamento do pagamento. Contate o suporte.' };
-            }
-            
-            throw innerError;
+            return { success: false, message: 'Erro ao salvar dados. Tente novamente.' };
         }
 
     } catch (error: any) {
         console.error("Firebase registration error:", error);
         let errorMessage = 'Ocorreu um erro inesperado durante o cadastro.';
-        if (error.code === 'auth/email-already-in-use') errorMessage = 'Este e-mail já está em uso por outro usuário.';
-        else if (error.code === 'auth/weak-password') errorMessage = 'A senha informada é muito curta ou fraca.';
-        else if (error.code === 'permission-denied') errorMessage = 'Erro de permissão ao validar seus dados. Tente novamente.';
+        if (error.code === 'auth/email-already-in-use') errorMessage = 'Este e-mail já está em uso.';
+        else if (error.code === 'auth/weak-password') errorMessage = 'A senha é muito fraca.';
         return { success: false, message: errorMessage };
     }
 };
@@ -143,6 +129,8 @@ export const adminCreateUser = async (name: string, email: string, password: str
     let secondaryApp: any = null;
     try {
         const cleanCpf = cpf.replace(/\D/g, '');
+        const cleanEmail = email.trim().toLowerCase();
+
         if (!isValidCPF(cleanCpf)) return { success: false, message: 'CPF inválido.' };
 
         const usersRef = collection(db, 'users');
@@ -153,7 +141,7 @@ export const adminCreateUser = async (name: string, email: string, password: str
         secondaryApp = initializeApp(firebaseConfig, "SecondaryApp");
         const secondaryAuth = getAuth(secondaryApp);
 
-        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, cleanEmail, password);
         const newUser = userCredential.user;
 
         await updateProfile(newUser, { displayName: name });
@@ -162,7 +150,7 @@ export const adminCreateUser = async (name: string, email: string, password: str
         const newUserData: User = {
             uid: newUser.uid,
             name,
-            email,
+            email: cleanEmail,
             phone: '', 
             cpf: cleanCpf,
             profileImage: DEFAULT_PROFILE_IMAGE,
@@ -189,10 +177,14 @@ export const adminCreateUser = async (name: string, email: string, password: str
 export const login = async (email: string, password: string): Promise<{ success: boolean, user?: User, message: string }> => {
     try {
         if (!email || !password) return { success: false, message: 'Email e senha são obrigatórios.' };
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        
+        const cleanEmail = email.trim().toLowerCase();
+        
+        const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, password);
         const firebaseUser = userCredential.user;
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         const docSnap = await getDoc(userDocRef);
+        
         let userData: User;
         if (docSnap.exists()) {
             userData = docSnap.data() as User;
@@ -232,7 +224,7 @@ export const loginWithGoogle = async (): Promise<{ success: boolean, user?: User
             userData = docSnap.data() as User;
             if (userData.status === 'blocked') {
                 await signOut(auth);
-                return { success: false, message: 'Sua conta foi bloqueada pelo administrador.' };
+                return { success: false, message: 'Sua conta foi bloqueada.' };
             }
         } else {
             userData = {
@@ -249,7 +241,7 @@ export const loginWithGoogle = async (): Promise<{ success: boolean, user?: User
             };
             await setDoc(userDocRef, userData);
         }
-        return { success: true, user: userData, message: 'Login com Google realizado com sucesso!' };
+        return { success: true, user: userData, message: 'Login com Google realizado!' };
     } catch (error: any) {
         return { success: false, message: 'Erro ao entrar com Google.' };
     }
@@ -267,9 +259,9 @@ export const logout = async (): Promise<{ success: boolean, message: string }> =
 export const sendPasswordResetEmail = async (email: string): Promise<{ success: boolean, message: string }> => {
     try {
         if (!email) return { success: false, message: 'Por favor, insira seu e-mail.' };
-        await firebaseSendPasswordResetEmail(auth, email);
-        return { success: true, message: 'Link de redefinição de senha enviado para o seu e-mail!' };
+        await firebaseSendPasswordResetEmail(auth, email.trim().toLowerCase());
+        return { success: true, message: 'Link de redefinição enviado!' };
     } catch (error: any) {
-        return { success: false, message: 'Erro ao enviar email de redefinição.' };
+        return { success: false, message: 'Erro ao enviar email.' };
     }
 };

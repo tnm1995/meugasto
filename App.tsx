@@ -28,6 +28,7 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true); 
   const [expirationWarning, setExpirationWarning] = useState<{ show: boolean; days: number }>({ show: false, days: 0 });
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
 
   const [isPrivacyPolicyModalOpen, setIsPrivacyPolicyModalOpen] = useState(false);
   const [isTermsOfServiceModalOpen, setIsTermsOfServiceModalOpen] = useState(false);
@@ -198,6 +199,15 @@ const App: React.FC = () => {
       safePushState('/');
   };
 
+  // Nova função para re-verificar status sem deslogar
+  const handleVerifyPayment = async () => {
+      if (!currentUser?.uid) return;
+      setIsVerifyingPayment(true);
+      // Força recarregamento dos dados do usuário
+      await validateUserSession(currentUser.uid);
+      setIsVerifyingPayment(false);
+  };
+
   const handleStart = (view: 'login' | 'register' | 'privacy' | 'terms') => {
     if (view === 'privacy') setIsPrivacyPolicyModalOpen(true);
     else if (view === 'terms') setIsTermsOfServiceModalOpen(true);
@@ -264,8 +274,12 @@ const App: React.FC = () => {
                       Para continuar utilizando o MeuGasto, escolha um plano.
                   </p>
                   <div className="space-y-3">
+                     <button onClick={handleVerifyPayment} disabled={isVerifyingPayment} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2">
+                        {isVerifyingPayment ? <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span> : <span className="material-symbols-outlined">sync</span>}
+                        Já paguei, verificar agora
+                     </button>
                      <button onClick={handleRenewSubscription} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition-all active:scale-95">Ver Planos de Acesso</button>
-                      <button onClick={handleLogout} className="w-full bg-gray-50 hover:bg-gray-100 text-gray-600 font-bold py-3 rounded-xl transition-all">Sair da Conta</button>
+                     <button onClick={handleLogout} className="w-full bg-gray-50 hover:bg-gray-100 text-gray-600 font-bold py-3 rounded-xl transition-all">Sair da Conta</button>
                   </div>
                </div>
             </motion.div>

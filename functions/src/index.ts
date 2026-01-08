@@ -38,7 +38,7 @@ export const paymentWebhook = functions.https.onRequest(async (req: any, res: an
 
     const status = (data.status || data.transaction_status || "").toUpperCase();
     
-    // Tratamento de dados do cliente
+    // Tratamento de dados do cliente - Padronização crucial
     const email = (data.customer?.email || data.email || "").trim().toLowerCase();
     const cpfRaw = data.customer?.cpf || data.cpf || ""; 
     const cpf = cpfRaw.replace(/\D/g, ""); // Remove tudo que não for número
@@ -81,31 +81,31 @@ export const paymentWebhook = functions.https.onRequest(async (req: any, res: an
 
     console.log(`Processing subscription for Email: ${email}, CPF: ${cpf}. Adding ${monthsToAdd} months.`);
 
-    // 1. Tenta encontrar o usuário JÁ CADASTRADO
+    // --- ESTRATÉGIA DE APROVISIONAMENTO ---
+    
     const usersRef = db.collection("users");
     let userDoc: admin.firestore.QueryDocumentSnapshot | null = null;
 
-    // Busca por Email
+    // 1. Prioridade: Tenta encontrar o usuário pelo E-mail
     if (email) {
         const emailSnapshot = await usersRef.where("email", "==", email).limit(1).get();
         if (!emailSnapshot.empty) {
             userDoc = emailSnapshot.docs[0];
-            console.log("User found by Email.");
+            console.log(`User found by Email: ${email}`);
         }
     }
 
-    // Se não achou por email, busca por CPF
+    // 2. Fallback: Se não achou por email, tenta pelo CPF
     if (!userDoc && cpf) {
         const cpfSnapshot = await usersRef.where("cpf", "==", cpf).limit(1).get();
         if (!cpfSnapshot.empty) {
             userDoc = cpfSnapshot.docs[0];
-            console.log("User found by CPF.");
+            console.log(`User found by CPF: ${cpf}`);
         }
     }
 
     if (userDoc) {
-        // --- CENÁRIO A: Usuário já tem conta ---
-        // Atualiza a assinatura do usuário existente
+        // --- CENÁRIO A: Usuário já tem conta (Atualização) ---
         
         let currentExpiresAt = userDoc.data().subscriptionExpiresAt ? new Date(userDoc.data().subscriptionExpiresAt) : new Date();
         const nowMidnight = new Date();
@@ -124,18 +124,21 @@ export const paymentWebhook = functions.https.onRequest(async (req: any, res: an
             subscriptionExpiresAt: updatedExpiresAt.toISOString().split("T")[0],
             status: "active",
             updatedAt: new Date().toISOString(),
-            lastPayment: paymentInfo
+            lastPayment: paymentInfo,
+            // Garante que o CPF esteja salvo no perfil se ainda não estiver
+            ...(cpf ? { cpf: cpf } : {})
         });
 
         console.log(`SUCCESS: User ${userDoc.id} subscription updated.`);
         res.status(200).json({ success: true, message: "User subscription updated" });
 
     } else {
-        // --- CENÁRIO B: Usuário NÃO tem conta ---
-        // Salva em 'pending_subscriptions' para ser vinculado quando ele se cadastrar no app
+        // --- CENÁRIO B: Usuário NÃO tem conta (Assinatura Pendente) ---
+        // Salva em 'pending_subscriptions' indexado pelo CPF para fácil resgate no cadastro
         
         if (cpf) {
             console.log(`User not found. Creating pending subscription for CPF: ${cpf}`);
+            // Usamos o CPF como ID do documento para garantir unicidade e busca O(1)
             await db.collection("pending_subscriptions").doc(cpf).set({
                 cpf: cpf,
                 email: email || null,
@@ -143,10 +146,9 @@ export const paymentWebhook = functions.https.onRequest(async (req: any, res: an
                 createdAt: new Date().toISOString(),
                 lastPayment: paymentInfo
             });
-            res.status(200).json({ success: true, message: "Pending subscription created. User needs to register." });
+            res.status(200).json({ success: true, message: "Pending subscription stored. User needs to register." });
         } else {
             console.warn(`User not found and NO CPF provided in payload. Cannot create pending subscription link.`);
-            // Retorna 200 para não dar erro no gateway de pagamento, mas loga o aviso
             res.status(200).send("User not found and no CPF to link");
         }
     }
