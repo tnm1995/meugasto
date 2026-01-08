@@ -563,7 +563,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, scrollTarget,
       // FORCE TEST LINK FOR MONTHLY PLAN
       const link = plan === 'annual'
           ? (pricing.annualLink || 'https://pay.kirvano.com/88970249-3079-45df-8083-26c9fe4c704c')
-          : 'https://pay.kirvano.com/b378387a-a4c5-418b-887d-7f5f295bb61c';
+          : 'https://pay.kirvano.com/3340149e-e444-4f3e-9db0-6058e4cbc3c8';
       
       window.open(link, '_blank');
   };

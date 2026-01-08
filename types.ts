@@ -226,7 +226,7 @@ export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
 export const DEFAULT_PRICING: PricingSettings = {
   monthlyPrice: 0.00, // Grátis (Teste)
   annualPrice: 199.90,
-  monthlyLink: 'https://pay.kirvano.com/b378387a-a4c5-418b-887d-7f5f295bb61c', 
+  monthlyLink: 'https://pay.kirvano.com/3340149e-e444-4f3e-9db0-6058e4cbc3c8', 
   annualLink: 'https://pay.kirvano.com/88970249-3079-45df-8083-26c9fe4c704c'
 };
 
