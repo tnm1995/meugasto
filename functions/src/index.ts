@@ -38,8 +38,10 @@ export const paymentWebhook = functions.https.onRequest(async (req: any, res: an
 
     const status = (data.status || data.transaction_status || "").toUpperCase();
     
-    // Tratamento de dados do cliente - Padronização crucial
-    const email = (data.customer?.email || data.email || "").trim().toLowerCase();
+    // Tratamento de dados do cliente
+    // AVISO: Email usado apenas para registro no log/documento, não para vínculo.
+    const contactEmail = (data.customer?.email || data.email || "").trim().toLowerCase();
+    
     const cpfRaw = data.customer?.cpf || data.cpf || ""; 
     const cpf = cpfRaw.replace(/\D/g, ""); // Remove tudo que não for número
     
@@ -54,9 +56,9 @@ export const paymentWebhook = functions.https.onRequest(async (req: any, res: an
         return;
     }
 
-    if (!email && !cpf) {
-        console.error("No identifier (email or CPF) found in payload");
-        res.status(400).send("User identifier required");
+    if (!cpf) {
+        console.error("No CPF found in payload. CPF is required for linking.");
+        res.status(400).send("CPF identifier required");
         return;
     }
 
@@ -79,29 +81,18 @@ export const paymentWebhook = functions.https.onRequest(async (req: any, res: an
         product: productName
     };
 
-    console.log(`Processing subscription for Email: ${email}, CPF: ${cpf}. Adding ${monthsToAdd} months.`);
+    console.log(`Processing subscription for CPF: ${cpf}. Adding ${monthsToAdd} months.`);
 
-    // --- ESTRATÉGIA DE APROVISIONAMENTO ---
+    // --- ESTRATÉGIA DE APROVISIONAMENTO POR CPF ---
     
     const usersRef = db.collection("users");
     let userDoc: admin.firestore.QueryDocumentSnapshot | null = null;
 
-    // 1. Prioridade: Tenta encontrar o usuário pelo E-mail
-    if (email) {
-        const emailSnapshot = await usersRef.where("email", "==", email).limit(1).get();
-        if (!emailSnapshot.empty) {
-            userDoc = emailSnapshot.docs[0];
-            console.log(`User found by Email: ${email}`);
-        }
-    }
-
-    // 2. Fallback: Se não achou por email, tenta pelo CPF
-    if (!userDoc && cpf) {
-        const cpfSnapshot = await usersRef.where("cpf", "==", cpf).limit(1).get();
-        if (!cpfSnapshot.empty) {
-            userDoc = cpfSnapshot.docs[0];
-            console.log(`User found by CPF: ${cpf}`);
-        }
+    // Busca EXCLUSIVA pelo CPF
+    const cpfSnapshot = await usersRef.where("cpf", "==", cpf).limit(1).get();
+    if (!cpfSnapshot.empty) {
+        userDoc = cpfSnapshot.docs[0];
+        console.log(`User found by CPF: ${cpf}`);
     }
 
     if (userDoc) {
@@ -112,7 +103,6 @@ export const paymentWebhook = functions.https.onRequest(async (req: any, res: an
         nowMidnight.setHours(0,0,0,0);
         
         // Se a assinatura antiga já venceu, a nova começa a contar de hoje.
-        // Se ainda está válida, soma o tempo ao final da atual.
         if (currentExpiresAt < nowMidnight) {
             currentExpiresAt = now;
         }
@@ -124,33 +114,26 @@ export const paymentWebhook = functions.https.onRequest(async (req: any, res: an
             subscriptionExpiresAt: updatedExpiresAt.toISOString().split("T")[0],
             status: "active",
             updatedAt: new Date().toISOString(),
-            lastPayment: paymentInfo,
-            // Garante que o CPF esteja salvo no perfil se ainda não estiver
-            ...(cpf ? { cpf: cpf } : {})
+            lastPayment: paymentInfo
         });
 
-        console.log(`SUCCESS: User ${userDoc.id} subscription updated.`);
+        console.log(`SUCCESS: User ${userDoc.id} subscription updated via CPF.`);
         res.status(200).json({ success: true, message: "User subscription updated" });
 
     } else {
         // --- CENÁRIO B: Usuário NÃO tem conta (Assinatura Pendente) ---
-        // Salva em 'pending_subscriptions' indexado pelo CPF para fácil resgate no cadastro
+        // Salva em 'pending_subscriptions' indexado pelo CPF
         
-        if (cpf) {
-            console.log(`User not found. Creating pending subscription for CPF: ${cpf}`);
-            // Usamos o CPF como ID do documento para garantir unicidade e busca O(1)
-            await db.collection("pending_subscriptions").doc(cpf).set({
-                cpf: cpf,
-                email: email || null,
-                subscriptionExpiresAt: newExpiresAtStr,
-                createdAt: new Date().toISOString(),
-                lastPayment: paymentInfo
-            });
-            res.status(200).json({ success: true, message: "Pending subscription stored. User needs to register." });
-        } else {
-            console.warn(`User not found and NO CPF provided in payload. Cannot create pending subscription link.`);
-            res.status(200).send("User not found and no CPF to link");
-        }
+        console.log(`User not found. Creating pending subscription for CPF: ${cpf}`);
+        // Usamos o CPF como ID do documento para garantir unicidade e busca O(1)
+        await db.collection("pending_subscriptions").doc(cpf).set({
+            cpf: cpf,
+            contactEmail: contactEmail || null,
+            subscriptionExpiresAt: newExpiresAtStr,
+            createdAt: new Date().toISOString(),
+            lastPayment: paymentInfo
+        });
+        res.status(200).json({ success: true, message: "Pending subscription stored. User needs to register with CPF." });
     }
 
   } catch (error) {

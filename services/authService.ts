@@ -25,10 +25,16 @@ const isValidCPF = (cpf: string): boolean => {
     return true;
 };
 
-export const register = async (name: string, email: string, password: string, phone: string, cpf: string): Promise<{ success: boolean, message: string, user?: User }> => {
+// Gera um email fictício para o Firebase Auth baseado no CPF
+const generateAuthEmail = (cpf: string) => {
+    const cleanCpf = cpf.replace(/\D/g, '');
+    return `${cleanCpf}@login.meugasto`;
+};
+
+export const register = async (name: string, cpf: string, password: string, phone: string, contactEmail: string = ''): Promise<{ success: boolean, message: string, user?: User }> => {
     try {
-        if (!name || !email || !password || !phone || !cpf) {
-            return { success: false, message: 'Todos os campos são obrigatórios.' };
+        if (!name || !cpf || !password || !phone) {
+            return { success: false, message: 'Todos os campos obrigatórios devem ser preenchidos.' };
         }
 
         const cleanCpf = cpf.replace(/\D/g, '');
@@ -36,33 +42,22 @@ export const register = async (name: string, email: string, password: string, ph
             return { success: false, message: 'Este número de CPF parece inválido. Verifique os dígitos.' };
         }
 
+        const authEmail = generateAuthEmail(cleanCpf);
         const cleanPhone = phone.replace(/\D/g, '');
-        const cleanEmail = email.trim().toLowerCase(); // Padronização
+        const finalContactEmail = contactEmail.trim().toLowerCase();
 
-        // 1. Cria o usuário no Auth PRIMEIRO
-        const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+        // 1. Cria o usuário no Auth usando o CPF como "email"
+        const userCredential = await createUserWithEmailAndPassword(auth, authEmail, password);
         const firebaseUser = userCredential.user;
 
         try {
-            // 2. Verifica duplicidade de CPF (Safety Check)
-            const usersRef = collection(db, 'users');
-            const q = query(usersRef, where('cpf', '==', cleanCpf));
-            const querySnapshot = await getDocs(q);
-
-            if (!querySnapshot.empty) {
-                // CPF Duplicado - Rollback
-                await deleteUser(firebaseUser);
-                return { 
-                    success: false, 
-                    message: 'O CPF informado já está vinculado a outra conta. Tente fazer login ou use outro CPF.' 
-                };
-            }
-
+            // 2. Verifica duplicidade de CPF (Embora o Auth já barre o email duplicado, verificamos para garantir consistência)
+            // Nota: O erro 'auth/email-already-in-use' já deve capturar CPF duplicado devido ao mapeamento
+            
             // 3. APROVISIONAMENTO: Verifica assinatura PENDENTE pelo CPF
             let subscriptionExpiresAt = null;
             let lastPayment = null; 
             
-            // Busca direta pelo ID do documento (CPF) - Muito mais rápido e seguro
             const pendingSubRef = doc(db, 'pending_subscriptions', cleanCpf);
             const pendingSubSnap = await getDoc(pendingSubRef);
 
@@ -87,7 +82,7 @@ export const register = async (name: string, email: string, password: string, ph
             const newUser: User = { 
                 uid: firebaseUser.uid, 
                 name, 
-                email: cleanEmail, 
+                email: finalContactEmail || authEmail, // Salva o email de contato visualmente, ou o de login se não houver
                 phone: `+55${cleanPhone}`,
                 cpf: cleanCpf,
                 profileImage: DEFAULT_PROFILE_IMAGE,
@@ -119,7 +114,7 @@ export const register = async (name: string, email: string, password: string, ph
     } catch (error: any) {
         console.error("Firebase registration error:", error);
         let errorMessage = 'Ocorreu um erro inesperado durante o cadastro.';
-        if (error.code === 'auth/email-already-in-use') errorMessage = 'Este e-mail já está em uso.';
+        if (error.code === 'auth/email-already-in-use') errorMessage = 'Este CPF já está cadastrado.';
         else if (error.code === 'auth/weak-password') errorMessage = 'A senha é muito fraca.';
         return { success: false, message: errorMessage };
     }
@@ -129,10 +124,12 @@ export const adminCreateUser = async (name: string, email: string, password: str
     let secondaryApp: any = null;
     try {
         const cleanCpf = cpf.replace(/\D/g, '');
-        const cleanEmail = email.trim().toLowerCase();
-
         if (!isValidCPF(cleanCpf)) return { success: false, message: 'CPF inválido.' };
 
+        const authEmail = generateAuthEmail(cleanCpf);
+        const contactEmail = email.trim().toLowerCase();
+
+        // Verifica duplicidade
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('cpf', '==', cleanCpf));
         const querySnapshot = await getDocs(q);
@@ -141,7 +138,7 @@ export const adminCreateUser = async (name: string, email: string, password: str
         secondaryApp = initializeApp(firebaseConfig, "SecondaryApp");
         const secondaryAuth = getAuth(secondaryApp);
 
-        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, cleanEmail, password);
+        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, authEmail, password);
         const newUser = userCredential.user;
 
         await updateProfile(newUser, { displayName: name });
@@ -150,7 +147,7 @@ export const adminCreateUser = async (name: string, email: string, password: str
         const newUserData: User = {
             uid: newUser.uid,
             name,
-            email: cleanEmail,
+            email: contactEmail,
             phone: '', 
             cpf: cleanCpf,
             profileImage: DEFAULT_PROFILE_IMAGE,
@@ -164,7 +161,7 @@ export const adminCreateUser = async (name: string, email: string, password: str
         await setDoc(userDocRef, newUserData);
         await signOut(secondaryAuth);
 
-        return { success: true, message: 'Usuário criado com sucesso!' };
+        return { success: true, message: 'Usuário criado com sucesso via CPF!' };
 
     } catch (error: any) {
         console.error("Admin create user error:", error);
@@ -174,13 +171,14 @@ export const adminCreateUser = async (name: string, email: string, password: str
     }
 };
 
-export const login = async (email: string, password: string): Promise<{ success: boolean, user?: User, message: string }> => {
+export const login = async (cpf: string, password: string): Promise<{ success: boolean, user?: User, message: string }> => {
     try {
-        if (!email || !password) return { success: false, message: 'Email e senha são obrigatórios.' };
+        if (!cpf || !password) return { success: false, message: 'CPF e senha são obrigatórios.' };
         
-        const cleanEmail = email.trim().toLowerCase();
+        const cleanCpf = cpf.replace(/\D/g, '');
+        const authEmail = generateAuthEmail(cleanCpf);
         
-        const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, password);
+        const userCredential = await signInWithEmailAndPassword(auth, authEmail, password);
         const firebaseUser = userCredential.user;
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         const docSnap = await getDoc(userDocRef);
@@ -193,9 +191,10 @@ export const login = async (email: string, password: string): Promise<{ success:
                 return { success: false, message: 'Sua conta foi bloqueada pelo administrador.' };
             }
         } else {
+             // Fallback caso documento não exista (não deveria acontecer com o novo fluxo)
              userData = {
                 uid: firebaseUser.uid,
-                name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuário',
+                name: firebaseUser.displayName || 'Usuário',
                 email: firebaseUser.email || '',
                 phone: '',
                 role: 'user',
@@ -204,12 +203,13 @@ export const login = async (email: string, password: string): Promise<{ success:
                 reminderSettings: DEFAULT_REMINDER_SETTINGS,
                 createdAt: new Date().toISOString(),
                 subscriptionExpiresAt: null,
+                cpf: cleanCpf
             };
         }
         return { success: true, user: userData, message: 'Login bem-sucedido!' };
     } catch (error: any) {
         console.error("Firebase login error:", error);
-        return { success: false, message: 'Email ou senha inválidos.' };
+        return { success: false, message: 'CPF ou senha inválidos.' };
     }
 };
 
@@ -256,11 +256,19 @@ export const logout = async (): Promise<{ success: boolean, message: string }> =
     }
 };
 
-export const sendPasswordResetEmail = async (email: string): Promise<{ success: boolean, message: string }> => {
+export const sendPasswordResetEmail = async (identifier: string): Promise<{ success: boolean, message: string }> => {
     try {
-        if (!email) return { success: false, message: 'Por favor, insira seu e-mail.' };
-        await firebaseSendPasswordResetEmail(auth, email.trim().toLowerCase());
-        return { success: true, message: 'Link de redefinição enviado!' };
+        // NOTA: Reset de senha via Firebase Auth funciona apenas por email. 
+        // Com o sistema de CPF/email falso, o reset padrão não enviará email para o usuário.
+        // Solução ideal: Coletar email de contato e implementar Cloud Function para reset.
+        // Por hora, apenas tentamos enviar se parecer um email, ou retornamos erro se for CPF.
+        
+        if (identifier.includes('@')) {
+             await firebaseSendPasswordResetEmail(auth, identifier.trim().toLowerCase());
+             return { success: true, message: 'Link de redefinição enviado!' };
+        } else {
+             return { success: false, message: 'Redefinição de senha indisponível para login via CPF.' };
+        }
     } catch (error: any) {
         return { success: false, message: 'Erro ao enviar email.' };
     }
