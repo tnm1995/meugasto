@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -559,12 +560,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, scrollTarget,
   }, [scrollTarget, clearScrollTarget]);
 
   const handleSubscribe = (plan: 'monthly' | 'annual') => {
-      // Force test link for monthly as requested, ignoring potentially old Firestore data
+      // FORCE TEST LINK FOR MONTHLY PLAN
       const link = plan === 'annual'
           ? (pricing.annualLink || 'https://pay.kirvano.com/88970249-3079-45df-8083-26c9fe4c704c')
           : 'https://pay.kirvano.com/b378387a-a4c5-418b-887d-7f5f295bb61c';
       
       window.open(link, '_blank');
+  };
+
+  const openThankYouPage = () => {
+      // Simula o redirecionamento para a página de obrigado
+      window.location.href = '/obrigado';
   };
 
   const faqData = [
@@ -619,6 +625,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, scrollTarget,
                         </motion.button>
                         <button onClick={() => { const el = document.getElementById('how-it-works'); if(el) el.scrollIntoView({behavior: 'smooth'}); }} className="w-full sm:w-auto px-8 py-4 bg-white text-gray-700 border border-gray-200 rounded-full font-bold text-lg hover:bg-gray-50 transition-all flex items-center justify-center hover:border-gray-300 active:scale-95">Ver Como Funciona</button>
                     </div>
+                    <p className="text-sm font-semibold text-blue-600 bg-blue-50/80 backdrop-blur-sm py-2 px-4 rounded-xl w-fit mx-auto lg:mx-0 border border-blue-100 flex items-center justify-center gap-2">
+                        <span className="material-symbols-outlined text-lg">calendar_month</span>
+                        7 dias grátis para testar. Sem compromisso.
+                    </p>
                 </div>
                 <div className="mt-8 flex items-center justify-center lg:justify-start gap-4 text-sm text-gray-500">
                   <div className="flex -space-x-2">{[1,2,3,4].map(i => (<div key={i} className="w-8 h-8 rounded-full bg-gray-200 border-2 border-white overflow-hidden shrink-0 aspect-square"><img src={`https://i.pravatar.cc/100?img=${i + 10}`} alt="User" className="w-full h-full object-cover" /></div>))}</div>
@@ -741,6 +751,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, scrollTarget,
                       <button onClick={() => onStart('terms')} className="hover:text-blue-600 transition-colors">Termos de Uso</button>
                       <button onClick={() => onStart('privacy')} className="hover:text-blue-600 transition-colors">Política de Privacidade</button>
                       <button onClick={onOpenSupport} className="hover:text-blue-600 transition-colors">Suporte</button>
+                      <button onClick={openThankYouPage} className="hover:text-blue-600 transition-colors text-xs opacity-50">Obrigado (Teste)</button>
                   </div>
                   <p className="text-xs text-gray-400">© {new Date().getFullYear()} MeuGasto. Todos os direitos reservados.</p>
               </div>
