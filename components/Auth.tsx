@@ -148,17 +148,15 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
             } else if (!isLoginView && !isResetPasswordView) {
                 const result = await register(name, cpf, password, phone, contactEmail);
                 if (result.success) {
-                    setSuccess(result.message + ' Por favor, faça o login com seu CPF.');
-                    showToast(result.message, 'success');
+                    setSuccess('Cadastro realizado! Redirecionando...');
+                    showToast('Cadastro realizado com sucesso! Entrando...', 'success');
                     
-                    // Força a atualização da URL para /login.
-                    // Isso garante que quando o AuthState mudar (devido ao logout automático do registro),
-                    // o componente pai (App.tsx) re-renderize o Auth com a view de Login, e não Register/Landing.
-                    window.history.pushState({}, '', '/login');
-                    
-                    setIsLoginView(true);
-                    setPassword('');
-                    setConfirmPassword('');
+                    // Se o user foi retornado e o login foi automático no register:
+                    if (result.user) {
+                        // Notifica o pai para transicionar, embora o onAuthStateChanged do App.tsx 
+                        // provavelmente fará isso automaticamente.
+                        onLoginSuccess(result.user); 
+                    }
                 } else {
                     setError(result.message);
                     showToast(result.message, 'error');
@@ -182,10 +180,8 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
         }
     };
     
-    // Style classes from the image (Blue background inputs)
     const inputContainerClass = "w-full";
     const labelClass = "block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5";
-    // Corrigido para azul claro conforme a imagem (bg-blue-50/50 ou similar)
     const inputClass = "w-full px-4 py-3.5 bg-blue-50/50 text-gray-900 font-medium rounded-xl border-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all duration-200 placeholder-gray-400 outline-none";
 
     return (

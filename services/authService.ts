@@ -118,10 +118,10 @@ export const register = async (name: string, cpf: string, password: string, phon
 
             await setDoc(userDocRef, firestoreData);
 
-            // Desloga para garantir refresh completo na próxima entrada
-            await signOut(auth);
+            // NÃO deslogar após cadastro. Isso permite que o app carregue imediatamente.
+            // O App.tsx detectará o usuário logado e redirecionará para o Dashboard.
 
-            return { success: true, message: successMessage };
+            return { success: true, message: successMessage, user: newUser };
 
         } catch (innerError: any) {
             console.error("Erro interno no cadastro (rollback):", innerError);
