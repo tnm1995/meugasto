@@ -14,7 +14,7 @@ interface AuthProps {
 export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView }) => {
     const [isLoginView, setIsLoginView] = useState(initialView === 'login');
     const [name, setName] = useState('');
-    const [contactEmail, setContactEmail] = useState(''); // Email apenas para contato
+    const [contactEmail, setContactEmail] = useState(''); // Email opcional para contato
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [phone, setPhone] = useState('');
@@ -85,7 +85,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
     const validateForm = () => {
         setError('');
         
-        // Validação comum (CPF e Senha)
+        // Validação comum
         if (!cpf || cpf.replace(/\D/g, '').length < 11) {
             setError('CPF incompleto ou inválido.');
             return false;
@@ -95,7 +95,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
             return false;
         }
 
-        if (!isLoginView) { // Validação Cadastro
+        if (!isLoginView) { // Cadastro
             if (!name) {
                 setError('Nome é obrigatório.');
                 return false;
@@ -140,6 +140,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
                     showToast(result.message, 'error');
                 }
             } else {
+                // Passa o CPF e o Email de contato
                 const result = await register(name, cpf, password, phone, contactEmail);
                 if (result.success) {
                     setSuccess(result.message + ' Por favor, faça o login com seu CPF.');
@@ -163,40 +164,42 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
         }
     };
     
-    const inputClasses = "w-full px-4 py-3.5 bg-gray-50 text-gray-800 rounded-xl border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all duration-200 placeholder-gray-400 text-sm";
+    // Classes do visual original (inputs cinzas)
+    const inputClasses = "w-full px-4 py-3 bg-gray-100 text-gray-800 rounded-lg border-2 border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors duration-200 placeholder-gray-400";
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center p-4 relative">
              <div className="absolute top-4 left-4">
-                <button onClick={onBack} className="text-sm text-gray-600 hover:text-blue-600 flex items-center bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm transition-colors" aria-label="Voltar">
-                    <span className="material-symbols-outlined mr-1 text-base" aria-hidden="true">arrow_back</span>
+                <button onClick={onBack} className="text-sm text-gray-600 hover:text-blue-600 flex items-center" aria-label="Voltar">
+                    <span className="material-symbols-outlined mr-1" aria-hidden="true">arrow_back</span>
                     Voltar
                 </button>
             </div>
             <div className="w-full max-w-sm">
-                <div className="text-center mb-8">
-                    <h1 className="text-4xl font-extrabold text-blue-700 tracking-tight">
+                <div className="text-center mb-6">
+                    {/* Visual original do Título */}
+                    <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-400 text-transparent bg-clip-text">
                         MeuGasto
                     </h1>
-                    <p className="text-gray-500 font-medium text-sm mt-1">Acesso Seguro via CPF</p>
+                    <p className="text-gray-500 mt-1">Acesso Seguro via CPF</p>
                 </div>
                 
-                <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
-                    <h2 className="text-2xl font-bold text-gray-900 text-center mb-1">
-                        {isLoginView ? 'Acessar Conta' : 'Criar Conta'}
+                <div className="bg-white rounded-2xl shadow-lg p-8">
+                    <h2 className="text-2xl font-bold text-gray-800 text-center mb-1">
+                        {isLoginView ? 'Entrar' : 'Cadastro'}
                     </h2>
-                    <p className="text-center text-gray-500 mb-6 text-xs">
-                        {isLoginView ? 'Digite seu CPF e senha para entrar.' : 'Preencha seus dados para começar.'}
+                    <p className="text-center text-gray-500 mb-6 text-sm">
+                        {isLoginView ? 'Digite seu CPF e senha.' : 'Preencha seus dados para começar.'}
                     </p>
                     
-                    {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl relative mb-4 text-sm flex items-center gap-2" role="alert"><span className="material-symbols-outlined text-lg">error</span>{error}</div>}
-                    {success && <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl relative mb-4 text-sm flex items-center gap-2" role="alert"><span className="material-symbols-outlined text-lg">check_circle</span>{success}</div>}
+                    {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-4 text-sm flex items-center gap-2" role="alert"><span className="material-symbols-outlined text-base">error</span>{error}</div>}
+                    {success && <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg relative mb-4 text-sm flex items-center gap-2" role="alert"><span className="material-symbols-outlined text-base">check_circle</span>{success}</div>}
                     
                     <form onSubmit={handleSubmit} className="space-y-4">
                         
                         {!isLoginView && (
                             <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block ml-1" htmlFor="name">Nome Completo</label>
+                                <label className="text-sm font-medium text-gray-600 mb-1 block" htmlFor="name">Nome Completo</label>
                                 <input
                                     type="text"
                                     id="name"
@@ -211,7 +214,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
                         )}
 
                         <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block ml-1" htmlFor="cpf">CPF</label>
+                            <label className="text-sm font-medium text-gray-600 mb-1 block" htmlFor="cpf">CPF</label>
                             <input
                                 type="text"
                                 id="cpf"
@@ -228,7 +231,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
                         {!isLoginView && (
                             <>
                                 <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block ml-1" htmlFor="phone">Celular</label>
+                                    <label className="text-sm font-medium text-gray-600 mb-1 block" htmlFor="phone">Celular</label>
                                     <input
                                         type="tel"
                                         id="phone"
@@ -242,14 +245,14 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block ml-1" htmlFor="email">E-mail (Opcional)</label>
+                                    <label className="text-sm font-medium text-gray-600 mb-1 block" htmlFor="email">E-mail (Opcional)</label>
                                     <input
                                         type="email"
                                         id="email"
                                         value={contactEmail}
                                         onChange={e => setContactEmail(e.target.value)}
                                         className={inputClasses}
-                                        placeholder="Para contato e avisos"
+                                        placeholder="Para recuperação de conta"
                                         autoComplete="email"
                                     />
                                 </div>
@@ -257,7 +260,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
                         )}
 
                         <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block ml-1" htmlFor="password">Senha</label>
+                            <label className="text-sm font-medium text-gray-600 mb-1 block" htmlFor="password">Senha</label>
                             <div className="relative">
                                 <input
                                     type={showPassword ? "text" : "password"}
@@ -267,7 +270,6 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
                                     className={`${inputClasses} pr-10`}
                                     required
                                     autoComplete={isLoginView ? "current-password" : "new-password"}
-                                    placeholder="••••••••"
                                 />
                                 <button
                                     type="button"
@@ -282,7 +284,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
 
                         {!isLoginView && (
                             <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block ml-1" htmlFor="confirm-password">Confirmar Senha</label>
+                                <label className="text-sm font-medium text-gray-600 mb-1 block" htmlFor="confirm-password">Confirmar Senha</label>
                                 <div className="relative">
                                     <input
                                         type={showConfirmPassword ? "text" : "password"}
@@ -292,7 +294,6 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
                                         className={`${inputClasses} pr-10`}
                                         required
                                         autoComplete="new-password"
-                                        placeholder="••••••••"
                                     />
                                     <button
                                         type="button"
@@ -306,11 +307,11 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
                             </div>
                         )}
 
-                        <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3.5 px-4 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-[0.98] disabled:bg-blue-300 disabled:shadow-none disabled:cursor-not-allowed mt-4" disabled={isLoading}>
+                        <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors shadow-lg active:scale-[0.98] disabled:bg-blue-300 disabled:shadow-none disabled:cursor-not-allowed mt-2" disabled={isLoading}>
                             {showSpinner ? (
                                 <span className="flex items-center justify-center gap-2">
                                     <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
-                                    {isLoginView ? 'Entrando...' : 'Criando Conta...'}
+                                    {isLoginView ? 'Entrando...' : 'Cadastrando...'}
                                 </span>
                             ) : (
                                 isLoginView ? 'Entrar' : 'Cadastrar'
@@ -319,7 +320,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess, onBack, initialView 
                     </form>
                     
                     <div className="text-center mt-6 pt-4 border-t border-gray-100">
-                        <button onClick={toggleView} className="text-sm text-gray-600 font-medium hover:text-blue-600 transition-colors">
+                        <button onClick={toggleView} className="text-sm text-blue-600 hover:underline transition-colors font-medium">
                             {isLoginView ? 'Não tem conta? Cadastre-se com CPF' : 'Já tem conta? Entrar com CPF'}
                         </button>
                     </div>

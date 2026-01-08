@@ -25,7 +25,7 @@ const isValidCPF = (cpf: string): boolean => {
     return true;
 };
 
-// Gera um email fictício para o Firebase Auth baseado no CPF
+// Gera um email fictício para o Firebase Auth baseado no CPF para manter a unicidade
 const generateAuthEmail = (cpf: string) => {
     const cleanCpf = cpf.replace(/\D/g, '');
     return `${cleanCpf}@login.meugasto`;
@@ -39,7 +39,7 @@ export const register = async (name: string, cpf: string, password: string, phon
 
         const cleanCpf = cpf.replace(/\D/g, '');
         if (!isValidCPF(cleanCpf)) {
-            return { success: false, message: 'Este número de CPF parece inválido. Verifique os dígitos.' };
+            return { success: false, message: 'Este número de CPF parece inválido.' };
         }
 
         const authEmail = generateAuthEmail(cleanCpf);
@@ -51,10 +51,7 @@ export const register = async (name: string, cpf: string, password: string, phon
         const firebaseUser = userCredential.user;
 
         try {
-            // 2. Verifica duplicidade de CPF (Embora o Auth já barre o email duplicado, verificamos para garantir consistência)
-            // Nota: O erro 'auth/email-already-in-use' já deve capturar CPF duplicado devido ao mapeamento
-            
-            // 3. APROVISIONAMENTO: Verifica assinatura PENDENTE pelo CPF
+            // 2. APROVISIONAMENTO: Verifica assinatura PENDENTE pelo CPF
             let subscriptionExpiresAt = null;
             let lastPayment = null; 
             
@@ -74,7 +71,7 @@ export const register = async (name: string, cpf: string, password: string, phon
                 successMessage = 'Cadastro realizado! Sua assinatura foi localizada e ativada.';
             }
 
-            // 4. Salva os dados do usuário
+            // 3. Salva os dados do usuário
             await updateProfile(firebaseUser, { displayName: name });
 
             const userDocRef = doc(db, 'users', firebaseUser.uid);
@@ -82,7 +79,7 @@ export const register = async (name: string, cpf: string, password: string, phon
             const newUser: User = { 
                 uid: firebaseUser.uid, 
                 name, 
-                email: finalContactEmail || authEmail, // Salva o email de contato visualmente, ou o de login se não houver
+                email: finalContactEmail || authEmail, // Salva o email de contato visualmente
                 phone: `+55${cleanPhone}`,
                 cpf: cleanCpf,
                 profileImage: DEFAULT_PROFILE_IMAGE,
@@ -191,7 +188,6 @@ export const login = async (cpf: string, password: string): Promise<{ success: b
                 return { success: false, message: 'Sua conta foi bloqueada pelo administrador.' };
             }
         } else {
-             // Fallback caso documento não exista (não deveria acontecer com o novo fluxo)
              userData = {
                 uid: firebaseUser.uid,
                 name: firebaseUser.displayName || 'Usuário',
@@ -258,16 +254,11 @@ export const logout = async (): Promise<{ success: boolean, message: string }> =
 
 export const sendPasswordResetEmail = async (identifier: string): Promise<{ success: boolean, message: string }> => {
     try {
-        // NOTA: Reset de senha via Firebase Auth funciona apenas por email. 
-        // Com o sistema de CPF/email falso, o reset padrão não enviará email para o usuário.
-        // Solução ideal: Coletar email de contato e implementar Cloud Function para reset.
-        // Por hora, apenas tentamos enviar se parecer um email, ou retornamos erro se for CPF.
-        
         if (identifier.includes('@')) {
              await firebaseSendPasswordResetEmail(auth, identifier.trim().toLowerCase());
              return { success: true, message: 'Link de redefinição enviado!' };
         } else {
-             return { success: false, message: 'Redefinição de senha indisponível para login via CPF.' };
+             return { success: false, message: 'Redefinição disponível apenas se houver email vinculado.' };
         }
     } catch (error: any) {
         return { success: false, message: 'Erro ao enviar email.' };
