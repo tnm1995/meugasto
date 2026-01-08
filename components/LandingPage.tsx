@@ -567,11 +567,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, scrollTarget,
       window.open(link, '_blank');
   };
 
-  const openThankYouPage = () => {
-      // Simula o redirecionamento para a página de obrigado
-      window.location.href = '/obrigado';
-  };
-
   const faqData = [
     { question: "Como funciona a leitura automática de notas?", answer: "Utilizamos inteligência artificial de última geração para analisar a imagem da sua nota fiscal. O sistema identifica a data, o estabelecimento, os itens comprados e os valores, categorizando tudo automaticamente em segundos." },
     { question: "O aplicativo é seguro?", answer: "Absolutamente. Utilizamos criptografia de ponta a ponta e infraestrutura de segurança de nível bancário para proteger seus dados. Suas informações são confidenciais e não são vendidas para terceiros." },
@@ -750,7 +745,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, scrollTarget,
                       <button onClick={() => onStart('terms')} className="hover:text-blue-600 transition-colors">Termos de Uso</button>
                       <button onClick={() => onStart('privacy')} className="hover:text-blue-600 transition-colors">Política de Privacidade</button>
                       <button onClick={onOpenSupport} className="hover:text-blue-600 transition-colors">Suporte</button>
-                      <button onClick={openThankYouPage} className="hover:text-blue-600 transition-colors text-xs opacity-50">Obrigado (Teste)</button>
                   </div>
                   <p className="text-xs text-gray-400">© {new Date().getFullYear()} MeuGasto. Todos os direitos reservados.</p>
               </div>

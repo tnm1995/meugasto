@@ -331,6 +331,7 @@ const App: React.FC = () => {
                     layoutId="support-chat-container"
                     onClick={() => setIsSupportChatOpen(true)}
                     className={`fixed right-6 w-14 h-14 bg-black text-white rounded-full shadow-2xl items-center justify-center z-50 ${chatButtonVisibilityClass} ${appState === 'app' ? 'bottom-24 md:bottom-6' : 'bottom-6'}`}
+                    style={{ borderRadius: '50%' }}
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.8 }}
