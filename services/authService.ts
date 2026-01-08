@@ -62,20 +62,23 @@ export const register = async (name: string, email: string, password: string, ph
 
             // 3. Verifica se existe uma assinatura PENDENTE para este CPF (Compra antes do cadastro)
             let subscriptionExpiresAt = null;
-            let lastPayment = null; // Inicializa como null, não undefined
+            let lastPayment = null; 
             
             const pendingSubRef = doc(db, 'pending_subscriptions', cleanCpf);
             const pendingSubSnap = await getDoc(pendingSubRef);
 
+            let successMessage = 'Cadastro realizado com sucesso!';
+
             if (pendingSubSnap.exists()) {
                 const pendingData = pendingSubSnap.data();
                 subscriptionExpiresAt = pendingData.subscriptionExpiresAt || null;
-                // Garante que lastPayment nunca seja undefined (Firestore rejeita undefined)
+                // Garante que lastPayment nunca seja undefined
                 lastPayment = pendingData.lastPayment || null;
                 
                 // Remove a pendência pois já foi vinculada
                 await deleteDoc(pendingSubRef);
                 console.log("Assinatura pendente encontrada e vinculada ao novo usuário.");
+                successMessage = 'Cadastro realizado! Sua assinatura foi identificada e vinculada.';
             }
 
             // 4. Salva os dados do usuário
@@ -83,7 +86,6 @@ export const register = async (name: string, email: string, password: string, ph
 
             const userDocRef = doc(db, 'users', firebaseUser.uid);
             
-            // Objeto User deve ser limpo de undefined
             const newUser: User = { 
                 uid: firebaseUser.uid, 
                 name, 
@@ -96,21 +98,25 @@ export const register = async (name: string, email: string, password: string, ph
                 status: 'active', 
                 createdAt: new Date().toISOString(),
                 subscriptionExpiresAt: subscriptionExpiresAt,
-                lastPayment: lastPayment || undefined, // Typescript aceita undefined na interface, mas Firestore precisa de cuidado. Se for undefined na interface, o setDoc ignora? Não, setDoc quebra com undefined explícito.
+                lastPayment: lastPayment || undefined,
             };
             
-            // Sanitização para Firestore: remove campos undefined ou converte para null
+            // Sanitização para Firestore
             const firestoreData = JSON.parse(JSON.stringify(newUser));
-            // Força lastPayment como null se não existir, para garantir a estrutura
             if (lastPayment === undefined || lastPayment === null) {
-                delete firestoreData.lastPayment; // Ou firestoreData.lastPayment = null;
+                delete firestoreData.lastPayment;
             } else {
                 firestoreData.lastPayment = lastPayment;
             }
 
             await setDoc(userDocRef, firestoreData);
 
-            return { success: true, message: subscriptionExpiresAt ? 'Cadastro realizado! Sua assinatura foi ativada.' : 'Cadastro realizado com sucesso!', user: newUser };
+            // IMPORTANTE: Desloga o usuário imediatamente após criar a conta.
+            // Isso evita que o App.tsx tente carregar o perfil antes que os dados estejam consistentes,
+            // e força o usuário a fazer o login manual, garantindo que ele veja a mensagem de sucesso.
+            await signOut(auth);
+
+            return { success: true, message: successMessage };
 
         } catch (innerError: any) {
             console.error("Erro interno no cadastro (rollback):", innerError);
