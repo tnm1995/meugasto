@@ -26,7 +26,8 @@ import {
     DescriptionIcon,
     ChatBubbleIcon,
     HistoryIcon,
-    ProfileIcon
+    ProfileIcon,
+    StarIcon
 } from './Icons';
 
 const formatDate = (isoDate: string | null | undefined) => {
@@ -342,8 +343,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
         }
     };
 
+    // Calculate Subscription Status for visual feedback
+    const isSubscriptionActive = subscriptionDate && new Date(subscriptionDate) >= new Date(new Date().setHours(0,0,0,0));
+
     return (
         <div className="p-4 space-y-6 flex flex-col h-full overflow-hidden">
+            {/* ... (Header and Tabs code remains same) ... */}
             <div className="mb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center shrink-0">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
@@ -409,6 +414,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                 </div>
             )}
 
+            {/* ... (Users Tab and Settings Tab logic) ... */}
             {activeTab === 'users' && (
                 <div className="flex-1 min-h-0 flex flex-col space-y-4 animate-fade-in">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 shrink-0">
@@ -636,37 +642,85 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                 </div>
                             </div>
 
-                            {/* Seção 2: Assinatura (Card Destacado) */}
-                            <div className="space-y-4">
-                                <h3 className="text-xs font-bold text-green-600 uppercase tracking-widest flex items-center gap-2 border-b border-green-100 pb-2">
-                                    <CalendarClockIcon className="text-sm"/> Gestão de Assinatura
-                                </h3>
-                                <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200">
-                                    <div className="flex flex-col md:flex-row gap-4 items-end mb-4">
-                                        <div className="w-full md:w-1/3">
-                                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Vencimento Atual</label>
-                                            <input type="date" value={subscriptionDate} onChange={e => setSubscriptionDate(e.target.value)} className="w-full p-2.5 bg-white border border-gray-300 rounded-lg text-sm font-mono" />
-                                        </div>
-                                        <div className="flex-1 w-full grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                            <button onClick={handleGrantTrial} className="px-2 py-2 bg-white border border-orange-200 text-orange-600 text-[10px] font-bold rounded-lg hover:bg-orange-50 shadow-sm transition-all flex flex-col items-center justify-center gap-1">
-                                                <span className="material-symbols-outlined text-sm">star</span> Trial (7d)
-                                            </button>
-                                            <button onClick={() => handleExtendSubscription(1)} className="px-2 py-2 bg-white border border-blue-200 text-blue-600 text-[10px] font-bold rounded-lg hover:bg-blue-50 shadow-sm transition-all flex flex-col items-center justify-center gap-1">
-                                                <span className="material-symbols-outlined text-sm">add</span> +1 Mês
-                                            </button>
-                                            <button onClick={() => handleExtendSubscription(12)} className="px-2 py-2 bg-white border border-indigo-200 text-indigo-600 text-[10px] font-bold rounded-lg hover:bg-indigo-50 shadow-sm transition-all flex flex-col items-center justify-center gap-1">
-                                                <span className="material-symbols-outlined text-sm">calendar_month</span> +1 Ano
-                                            </button>
-                                            <button onClick={() => setSubscriptionDate('')} className="px-2 py-2 bg-white border border-purple-200 text-purple-600 text-[10px] font-bold rounded-lg hover:bg-purple-50 shadow-sm transition-all flex flex-col items-center justify-center gap-1">
-                                                <span className="material-symbols-outlined text-sm">infinity</span> Vitalício
-                                            </button>
+                            {/* Seção 2: Assinatura (Card Renovado) */}
+                            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                                {/* Header do Card de Assinatura com Status */}
+                                <div className="bg-gray-50 px-5 py-3 border-b border-gray-100 flex justify-between items-center">
+                                    <div className="flex items-center gap-2">
+                                        <CalendarClockIcon className="text-gray-400 text-sm"/>
+                                        <h3 className="text-sm font-bold text-gray-700">Assinatura Premium</h3>
+                                    </div>
+                                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${isSubscriptionActive ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'}`}>
+                                        {isSubscriptionActive ? 'ATIVA' : 'EXPIRADA / INATIVA'}
+                                    </span>
+                                </div>
+
+                                <div className="p-5">
+                                    {/* Date Input Area */}
+                                    <div className="mb-6">
+                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 block ml-1">Vencimento do Plano</label>
+                                        <div className="relative">
+                                            <input 
+                                                type="date" 
+                                                value={subscriptionDate} 
+                                                onChange={e => setSubscriptionDate(e.target.value)} 
+                                                className="w-full p-3 bg-white border border-gray-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" 
+                                            />
                                         </div>
                                     </div>
-                                    <div className="pt-3 border-t border-gray-200">
-                                        <button onClick={handleRevokeSubscription} className="text-red-600 text-xs font-bold hover:underline flex items-center gap-1">
-                                            <XMarkIcon className="text-sm"/> Revogar/Cancelar Assinatura
+
+                                    {/* Quick Actions Grid */}
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 block ml-1">Ações Rápidas</label>
+                                    <div className="grid grid-cols-2 gap-3 mb-5">
+                                        {/* Trial Button */}
+                                        <button onClick={handleGrantTrial} className="flex items-center gap-3 p-3 rounded-xl border border-orange-200 bg-orange-50 hover:bg-orange-100 transition-colors text-left group">
+                                            <div className="w-8 h-8 rounded-lg bg-orange-100 border border-orange-200 text-orange-600 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                                                <StarIcon className="text-sm" />
+                                            </div>
+                                            <div>
+                                                <div className="text-xs font-bold text-orange-800">Trial 7 Dias</div>
+                                                <div className="text-[10px] text-orange-600/70 font-medium">Conceder teste</div>
+                                            </div>
+                                        </button>
+
+                                        {/* +1 Month Button */}
+                                        <button onClick={() => handleExtendSubscription(1)} className="flex items-center gap-3 p-3 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 transition-colors text-left group">
+                                            <div className="w-8 h-8 rounded-lg bg-blue-100 border border-blue-200 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                                                <PlusIcon className="text-sm" />
+                                            </div>
+                                            <div>
+                                                <div className="text-xs font-bold text-blue-800">+1 Mês</div>
+                                                <div className="text-[10px] text-blue-600/70 font-medium">Adicionar tempo</div>
+                                            </div>
+                                        </button>
+
+                                        {/* +1 Year Button */}
+                                        <button onClick={() => handleExtendSubscription(12)} className="flex items-center gap-3 p-3 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 transition-colors text-left group">
+                                            <div className="w-8 h-8 rounded-lg bg-indigo-100 border border-indigo-200 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                                                <CalendarClockIcon className="text-sm" />
+                                            </div>
+                                            <div>
+                                                <div className="text-xs font-bold text-indigo-800">+1 Ano</div>
+                                                <div className="text-[10px] text-indigo-600/70 font-medium">Renovação anual</div>
+                                            </div>
+                                        </button>
+
+                                        {/* Lifetime Button */}
+                                        <button onClick={() => setSubscriptionDate('')} className="flex items-center gap-3 p-3 rounded-xl border border-purple-200 bg-purple-50 hover:bg-purple-100 transition-colors text-left group">
+                                            <div className="w-8 h-8 rounded-lg bg-purple-100 border border-purple-200 text-purple-600 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                                                <span className="material-symbols-outlined text-sm">all_inclusive</span>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs font-bold text-purple-800">Vitalício</div>
+                                                <div className="text-[10px] text-purple-600/70 font-medium">Acesso eterno</div>
+                                            </div>
                                         </button>
                                     </div>
+
+                                    {/* Revoke Button */}
+                                    <button onClick={handleRevokeSubscription} className="w-full py-2.5 border border-red-100 bg-red-50 text-red-600 rounded-xl text-xs font-bold hover:bg-red-100 hover:border-red-200 transition-all flex items-center justify-center gap-2">
+                                        <XMarkIcon className="text-sm"/> Revogar Acesso Premium
+                                    </button>
                                 </div>
                             </div>
 
