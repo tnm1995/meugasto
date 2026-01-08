@@ -74,6 +74,7 @@ export const CalendarClockIcon: React.FC<IconProps> = ({ className }) => <Materi
 export const EmailIcon: React.FC<IconProps> = ({ className }) => <MaterialIcon iconName="mail" className={className} />;
 export const KeyIcon: React.FC<IconProps> = ({ className }) => <MaterialIcon iconName="key" className={className} />;
 export const HistoryIcon: React.FC<IconProps> = ({ className }) => <MaterialIcon iconName="history" className={className} />;
+export const ConstructionIcon: React.FC<IconProps> = ({ className }) => <MaterialIcon iconName="construction" className={className} />;
 
 // Install Prompt Icons
 export const IosShareIcon: React.FC<IconProps> = ({ className }) => <MaterialIcon iconName="ios_share" className={className} />;

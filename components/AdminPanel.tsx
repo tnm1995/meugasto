@@ -28,7 +28,8 @@ import {
     ChatBubbleIcon,
     HistoryIcon,
     ProfileIcon,
-    StarIcon
+    StarIcon,
+    ConstructionIcon
 } from './Icons';
 
 const formatDate = (isoDate: string | null | undefined) => {
@@ -51,16 +52,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const { showToast } = useToast();
-    const { pricing, loading: loadingPricing } = useSystemSettings();
+    const { pricing, settings: globalSettings, loading: loadingSettings } = useSystemSettings();
 
     const [logs, setLogs] = useState<AdminLog[]>([]);
     const [loadingLogs, setLoadingLogs] = useState(false);
 
+    // Pricing States
     const [editMonthlyPrice, setEditMonthlyPrice] = useState('');
     const [editAnnualPrice, setEditAnnualPrice] = useState('');
     const [editMonthlyLink, setEditMonthlyLink] = useState('');
     const [editAnnualLink, setEditAnnualLink] = useState('');
     const [isSavingPricing, setIsSavingPricing] = useState(false);
+
+    // Global Settings States
+    const [scannerMaintenance, setScannerMaintenance] = useState(false);
+    const [isSavingSettings, setIsSavingSettings] = useState(false);
 
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [newEmail, setNewEmail] = useState('');
@@ -94,13 +100,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
     const canViewLogs = isSuperAdmin || isOperationalAdmin;
     
     useEffect(() => {
-        if (!loadingPricing && pricing) {
-            setEditMonthlyPrice(pricing.monthlyPrice.toString());
-            setEditAnnualPrice(pricing.annualPrice.toString());
-            setEditMonthlyLink(pricing.monthlyLink || '');
-            setEditAnnualLink(pricing.annualLink || '');
+        if (!loadingSettings) {
+            if (pricing) {
+                setEditMonthlyPrice(pricing.monthlyPrice.toString());
+                setEditAnnualPrice(pricing.annualPrice.toString());
+                setEditMonthlyLink(pricing.monthlyLink || '');
+                setEditAnnualLink(pricing.annualLink || '');
+            }
+            if (globalSettings) {
+                setScannerMaintenance(globalSettings.scannerMaintenance);
+            }
         }
-    }, [loadingPricing, pricing]);
+    }, [loadingSettings, pricing, globalSettings]);
 
     const logAction = async (action: string, details: string, targetUser?: User) => {
         try {
@@ -294,16 +305,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
         }
     };
     
-    const handleSavePricing = async () => {
+    const handleSaveSettings = async () => {
         if (!canManagePricing) return;
+        
+        // Validação de Preços
         const mPrice = parseFloat(editMonthlyPrice.replace(',', '.'));
         const aPrice = parseFloat(editAnnualPrice.replace(',', '.'));
         if (isNaN(mPrice) || isNaN(aPrice)) {
             showToast('Por favor, insira valores válidos.', 'error');
             return;
         }
+
         setIsSavingPricing(true);
         try {
+            // Salva Pricing
             const pricingRef = doc(db, 'settings', 'pricing');
             await setDoc(pricingRef, {
                 monthlyPrice: mPrice,
@@ -311,7 +326,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                 monthlyLink: editMonthlyLink,
                 annualLink: editAnnualLink
             }, { merge: true });
-            await logAction('Alteração de Configurações', `Preços ou Links atualizados.`);
+
+            // Salva Global Settings (Features)
+            const globalRef = doc(db, 'settings', 'global');
+            await setDoc(globalRef, {
+                scannerMaintenance: scannerMaintenance
+            }, { merge: true });
+
+            await logAction('Alteração de Configurações', `Preços ou Features atualizados.`);
             showToast('Configurações salvas com sucesso!', 'success');
         } catch (error) {
             showToast('Erro ao atualizar configurações.', 'error');
@@ -415,9 +437,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                 </div>
             )}
 
-            {/* ... (Users Tab and Settings Tab logic) ... */}
+            {/* ... (Users Tab logic same as before) ... */}
             {activeTab === 'users' && (
                 <div className="flex-1 min-h-0 flex flex-col space-y-4 animate-fade-in">
+                    {/* ... (Stats and Search Bar code) ... */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 shrink-0">
                         <div className="bg-white p-4 rounded-xl shadow-sm flex items-center space-x-3 border border-gray-100">
                             <div className="w-10 h-10 flex items-center justify-center bg-blue-100 rounded-full text-blue-600 flex-shrink-0"><GroupIcon className="text-xl"/></div>
@@ -518,12 +541,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                             </div>
                             <div>
                                 <h2 className="text-xl font-bold text-gray-800">Ajustes do Sistema</h2>
-                                <p className="text-xs text-gray-500">Valores e links de pagamento ativos no aplicativo</p>
+                                <p className="text-xs text-gray-500">Valores, links e funcionalidades do app</p>
                             </div>
                         </div>
                         <button 
-                            onClick={handleSavePricing}
-                            disabled={isSavingPricing || loadingPricing}
+                            onClick={handleSaveSettings}
+                            disabled={isSavingPricing || loadingSettings}
                             className="bg-black text-white font-bold py-2.5 px-8 rounded-xl hover:bg-gray-800 transition-all shadow-lg shadow-gray-200 flex items-center gap-2 disabled:bg-gray-300 disabled:shadow-none active:scale-95"
                         >
                             {isSavingPricing ? <span className="flex items-center"><span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>Salvando...</span> : <><CheckCircleIcon className="text-xl" /> Salvar Alterações</>}
@@ -532,6 +555,34 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
 
                     <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
                         <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            {/* Feature Flags Section */}
+                            <div className="space-y-6 lg:col-span-2">
+                                <div className="flex items-center gap-2 text-gray-800 font-bold border-b border-gray-100 pb-3 mb-4">
+                                    <ConstructionIcon className="text-orange-600" />
+                                    <span>Funcionalidades do App</span>
+                                </div>
+                                <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 flex items-center justify-between">
+                                    <div>
+                                        <h4 className="font-bold text-gray-800 text-sm">Manutenção do Scanner</h4>
+                                        <p className="text-xs text-gray-500 mt-1 max-w-md">
+                                            Se ativado, o botão de escanear nota será desabilitado para os usuários e exibirá uma mensagem de "Em manutenção".
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center">
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input 
+                                                type="checkbox" 
+                                                className="sr-only peer"
+                                                checked={scannerMaintenance}
+                                                onChange={(e) => setScannerMaintenance(e.target.checked)}
+                                            />
+                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
+                                            <span className="ml-3 text-sm font-medium text-gray-900">{scannerMaintenance ? 'Em Manutenção' : 'Funcionando'}</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="space-y-6">
                                 <div className="flex items-center gap-2 text-gray-800 font-bold border-b border-gray-100 pb-3 mb-4">
                                     <AttachMoneyIcon className="text-green-600" />
@@ -589,6 +640,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                 </div>
             )}
 
+            {/* ... (Editing User Modal same as before) ... */}
             {editingUser && canEditUsers && ReactDOM.createPortal(
                 <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex justify-center items-center z-[9999] p-4">
                     <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full flex flex-col max-h-[90vh] overflow-hidden animate-fade-in border border-gray-200">

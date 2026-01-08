@@ -3,11 +3,12 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import type { Expense, Omit, User } from '../types';
 import { extractExpenseFromImage } from '../services/geminiService'; 
-import { CameraIcon, XMarkIcon, TrashIcon, PlusIcon, CalculateIcon, TrendingUpIcon } from './Icons';
+import { CameraIcon, XMarkIcon, TrashIcon, PlusIcon, CalculateIcon, TrendingUpIcon, ConstructionIcon } from './Icons';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from '../types';
 import { useToast } from '../contexts/ToastContext';
-import { db } from '../services/firebaseService'; // Import db
-import { doc, updateDoc, increment } from 'firebase/firestore'; // Import updateDoc and increment
+import { db } from '../services/firebaseService'; 
+import { doc, updateDoc, increment } from 'firebase/firestore'; 
+import { useSystemSettings } from '../hooks/useSystemSettings'; // Hook para feature flags
 
 interface ExpenseModalProps {
   isOpen: boolean;
@@ -16,8 +17,8 @@ interface ExpenseModalProps {
   expenseToEdit?: Expense | null;
   initialData?: Omit<Expense, 'id'> | null;
   onAPISetupError: () => void;
-  currentUser?: User; // Add currentUser prop
-  onOpenSubscriptionModal?: () => void; // Add callback
+  currentUser?: User; 
+  onOpenSubscriptionModal?: () => void; 
 }
 
 const fileToBase64 = (file: File): Promise<string> => {
@@ -57,6 +58,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { showToast } = useToast();
+  const { settings } = useSystemSettings(); // Acessa feature flags
 
   const resetForm = useCallback(() => {
     setFormData({ 
@@ -168,7 +170,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         
         if (!isPremium && scansUsed >= 3) {
             if (fileInputRef.current) fileInputRef.current.value = '';
-            // Close Expense Modal first to avoid stacking issues or just show subscription
             if (onOpenSubscriptionModal) {
                 onOpenSubscriptionModal();
             } else {
@@ -196,7 +197,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         const finalLocalName = extractedData.localName?.trim() !== '' ? extractedData.localName : 'Despesa Escaneada';
         let finalPurchaseDate = extractedData.purchaseDate || new Date().toISOString().split('T')[0];
         
-        // Garante formato correto de data
         if (!/^\d{4}-\d{2}-\d{2}$/.test(finalPurchaseDate)) {
              finalPurchaseDate = new Date().toISOString().split('T')[0];
         }
@@ -228,7 +228,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
         showToast('Notinha lida com sucesso! Revise os dados.', 'success');
         
-        // Successfully scanned, increment usage
         await incrementScanCount();
         
       } catch (e) {
@@ -248,6 +247,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   };
 
   const handleScanClick = () => {
+    if (settings.scannerMaintenance) {
+        showToast("Estamos aprimorando nossa IA de leitura. Volte em breve!", "info");
+        return;
+    }
     fileInputRef.current?.click();
   };
 
@@ -324,6 +327,9 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const inputClasses = "w-full p-3.5 bg-white text-gray-800 rounded-xl border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 disabled:bg-gray-50 disabled:text-gray-400 placeholder-gray-400";
   const itemInputClasses = "p-2.5 bg-white text-gray-800 rounded-lg border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-all";
 
+  // Scanner Button Logic
+  const isScannerMaintenance = settings.scannerMaintenance;
+  
   return ReactDOM.createPortal(
     <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex justify-center items-center z-[9999] p-4" role="dialog" aria-modal="true" aria-labelledby="expense-modal-title">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-fade-in">
@@ -387,14 +393,21 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
               {!expenseToEdit && !initialData && !previewUrl && formData.type === 'expense' && (
                 <div className="mb-6">
-                    <button onClick={handleScanClick} className="w-full flex items-center justify-center gap-3 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 text-blue-700 font-bold rounded-2xl hover:from-blue-100 hover:to-indigo-100 transition-all shadow-sm group active:scale-[0.98]">
-                        <div className="bg-white w-10 h-10 flex items-center justify-center rounded-full shadow-sm group-hover:scale-110 transition-transform">
-                          <CameraIcon className="text-xl" />
+                    <button 
+                        onClick={handleScanClick} 
+                        className={`w-full flex items-center justify-center gap-3 p-4 border text-center font-bold rounded-2xl transition-all shadow-sm group active:scale-[0.98] ${
+                            isScannerMaintenance 
+                            ? 'bg-orange-50 border-orange-200 text-orange-600 hover:bg-orange-100 cursor-help' 
+                            : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100 text-blue-700 hover:from-blue-100 hover:to-indigo-100'
+                        }`}
+                    >
+                        <div className={`w-10 h-10 flex items-center justify-center rounded-full shadow-sm transition-transform ${isScannerMaintenance ? 'bg-orange-100 text-orange-600' : 'bg-white group-hover:scale-110'}`}>
+                          {isScannerMaintenance ? <ConstructionIcon className="text-xl" /> : <CameraIcon className="text-xl" />}
                         </div>
-                        Escanear Nota Fiscal (IA)
+                        {isScannerMaintenance ? 'Recurso em Manutenção para Melhorias' : 'Escanear Nota Fiscal (IA)'}
                     </button>
                     {/* Scanner counter for free users */}
-                    {currentUser && !currentUser.subscriptionExpiresAt && (
+                    {currentUser && !currentUser.subscriptionExpiresAt && !isScannerMaintenance && (
                        <p className="text-[10px] text-center text-gray-400 mt-2 font-medium">
                            Restam {Math.max(0, 3 - (currentUser.scanCount || 0))} scans gratuitos
                        </p>

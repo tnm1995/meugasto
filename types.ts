@@ -100,6 +100,10 @@ export interface PricingSettings {
   annualLink?: string;
 }
 
+export interface GlobalSettings {
+  scannerMaintenance: boolean;
+}
+
 export interface AdminLog {
   id: string;
   adminId: string;
@@ -228,6 +232,10 @@ export const DEFAULT_PRICING: PricingSettings = {
   annualPrice: 199.90,
   monthlyLink: 'https://pay.kirvano.com/1e11a33d-fa77-4983-a450-bf1871579b62', 
   annualLink: 'https://pay.kirvano.com/88970249-3079-45df-8083-26c9fe4c704c'
+};
+
+export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
+  scannerMaintenance: false
 };
 
 export const ROLE_LABELS: Record<UserRole, string> = {

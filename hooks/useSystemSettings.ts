@@ -1,35 +1,46 @@
+
 import { useState, useEffect } from 'react';
 import { db } from '../services/firebaseService';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { PricingSettings, DEFAULT_PRICING } from '../types';
+import { PricingSettings, GlobalSettings, DEFAULT_PRICING, DEFAULT_GLOBAL_SETTINGS } from '../types';
 
 export const useSystemSettings = () => {
   const [pricing, setPricing] = useState<PricingSettings>(DEFAULT_PRICING);
+  const [settings, setSettings] = useState<GlobalSettings>(DEFAULT_GLOBAL_SETTINGS);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const docRef = doc(db, 'settings', 'pricing');
-    
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+    // Escuta Pricing
+    const pricingRef = doc(db, 'settings', 'pricing');
+    const unsubscribePricing = onSnapshot(pricingRef, (docSnap) => {
       if (docSnap.exists()) {
         setPricing(docSnap.data() as PricingSettings);
       } else {
-        // Se não existe configuração salva no banco, usa o padrão (mas não salva automaticamente para evitar criar doc sem querer)
         setPricing(DEFAULT_PRICING);
       }
-      setLoading(false);
     }, (error) => {
-      // Se der erro de permissão (permission-denied), significa que as regras do Firestore estão bloqueando
-      if (error.code === 'permission-denied') {
-        console.warn("Permissão negada ao ler preços. Verifique firestore.rules. Usando preços padrão.");
+      console.warn("Erro ao buscar preços:", error);
+    });
+
+    // Escuta Global Settings (Feature Flags)
+    const globalRef = doc(db, 'settings', 'global');
+    const unsubscribeGlobal = onSnapshot(globalRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setSettings(docSnap.data() as GlobalSettings);
       } else {
-        console.error("Erro ao buscar configurações de preço:", error);
+        setSettings(DEFAULT_GLOBAL_SETTINGS);
       }
+      setLoading(false); // Assume loaded once we have at least one response (or defaults)
+    }, (error) => {
+      console.warn("Erro ao buscar configurações globais:", error);
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribePricing();
+      unsubscribeGlobal();
+    };
   }, []);
 
-  return { pricing, loading };
+  return { pricing, settings, loading };
 };
