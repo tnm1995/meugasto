@@ -454,22 +454,38 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
                 onLogout={handleAppLogout} 
             />
             
-            {/* Alert Banner (Trial/Expire) */}
-            {expirationWarning?.show && (
-                <div className="absolute z-30 top-20 left-4 right-4 md:left-8 md:right-8 flex justify-center animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-none">
-                    <div className={`pointer-events-auto backdrop-blur-md border rounded-2xl shadow-xl p-3 w-full max-w-2xl flex items-center justify-between gap-3 ring-1 ring-black/5 ${isTrialPeriod ? 'bg-indigo-50/95 border-indigo-200 shadow-indigo-500/10' : 'bg-white/95 border-orange-100 shadow-orange-500/10'}`}>
-                        <div className="flex items-center gap-3 overflow-hidden">
-                            <div className={`p-2.5 rounded-xl shrink-0 flex items-center justify-center ${isTrialPeriod ? 'bg-indigo-100' : 'bg-orange-50'}`}><span className={`material-symbols-outlined text-xl ${isTrialPeriod ? 'text-indigo-600' : 'text-orange-500'}`}>{isTrialPeriod ? 'hourglass_top' : 'av_timer'}</span></div>
-                            <div className="flex flex-col min-w-0"><span className={`font-bold text-sm truncate ${isTrialPeriod ? 'text-indigo-900' : 'text-gray-800'}`}>{isTrialPeriod ? 'Teste Grátis Acabando' : 'Renovação Necessária'}</span><span className="text-gray-500 text-xs truncate">{isTrialPeriod ? 'Restam' : 'Vence em'} <span className={`font-bold ${isTrialPeriod ? 'text-indigo-600' : 'text-orange-600'}`}>{expirationWarning.days} dia(s)</span>.</span></div>
-                        </div>
-                        <button onClick={() => setIsSubscriptionModalFromComponent(true)} className={`text-xs font-bold px-5 py-2.5 rounded-xl shadow-md hover:shadow-lg transform active:scale-95 transition-all whitespace-nowrap text-white ${isTrialPeriod ? 'bg-gradient-to-r from-indigo-600 to-purple-600' : 'bg-gradient-to-r from-orange-500 to-amber-500'}`}>{isTrialPeriod ? 'Garantir Acesso' : 'Renovar Agora'}</button>
-                    </div>
-                </div>
-            )}
-
             {/* Scrollable Main View com Animação de Transição */}
-            <main className={`flex-1 overflow-y-auto pb-24 md:pb-8 w-full px-4 sm:px-6 lg:px-8 custom-scrollbar ${expirationWarning?.show ? 'pt-24' : 'pt-4'}`}>
-                <div className="max-w-7xl mx-auto h-full">
+            <main className="flex-1 overflow-y-auto pb-24 md:pb-8 w-full px-4 sm:px-6 lg:px-8 custom-scrollbar pt-6">
+                <div className="max-w-7xl mx-auto h-full flex flex-col gap-6">
+                    
+                    {/* Alert Banner (Trial/Expire) - Integrated into Grid */}
+                    {expirationWarning?.show && (
+                        <div className={`w-full rounded-2xl p-1 border shadow-sm transition-all ${isTrialPeriod ? 'bg-indigo-50 border-indigo-100' : 'bg-orange-50 border-orange-100'}`}>
+                            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                 <div className="flex items-center gap-4 w-full sm:w-auto">
+                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${isTrialPeriod ? 'bg-indigo-100 text-indigo-600' : 'bg-orange-100 text-orange-600'}`}>
+                                        <span className="material-symbols-outlined text-2xl">{isTrialPeriod ? 'hourglass_top' : 'av_timer'}</span>
+                                    </div>
+                                    <div>
+                                        <h3 className={`font-bold text-base ${isTrialPeriod ? 'text-indigo-900' : 'text-gray-800'}`}>
+                                            {isTrialPeriod ? 'Período de Teste Ativo' : 'Renovação Necessária'}
+                                        </h3>
+                                        <p className={`text-sm ${isTrialPeriod ? 'text-indigo-700' : 'text-orange-700'}`}>
+                                            {isTrialPeriod ? `Restam ${expirationWarning.days} dias de acesso gratuito.` : `Sua assinatura vence em ${expirationWarning.days} dia(s).`} <span className="font-normal text-gray-500 hidden sm:inline">Garanta acesso contínuo aos recursos Premium.</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => setIsSubscriptionModalFromComponent(true)} 
+                                    className={`w-full sm:w-auto px-6 py-3 rounded-xl font-bold text-sm shadow-sm transition-all active:scale-95 whitespace-nowrap text-white flex items-center justify-center gap-2 ${isTrialPeriod ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-orange-600 hover:bg-orange-700'}`}
+                                >
+                                    <span className="material-symbols-outlined text-lg">workspace_premium</span>
+                                    {isTrialPeriod ? 'Assinar Agora' : 'Renovar Acesso'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={currentView}
@@ -477,7 +493,7 @@ export const MainAppContent: React.FC<MainAppContentProps> = ({ currentUser, onO
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
                             transition={{ duration: 0.25, ease: "easeInOut" }}
-                            className="h-full w-full"
+                            className="w-full flex-1"
                         >
                             {renderView()}
                         </motion.div>
