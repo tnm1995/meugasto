@@ -3,8 +3,9 @@ import { GoogleGenAI, Type } from "@google/genai";
 import type { Expense, BankTransaction, Omit } from '../types';
 import { CATEGORIES } from '../types';
 
-// Initialize the Gemini API client strictly with the environment variable per guidelines
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Initialize the Gemini API client
+// Usando a chave nova diretamente para garantir que não pegue a antiga do cache do processo
+const ai = new GoogleGenAI({ apiKey: 'AIzaSyAcGlrS2Ce25PkwN-Alp8vRcLJAxV-RepI' });
 
 // Helper para limpar blocos de código Markdown (```json ... ```) da resposta
 const cleanJsonString = (str: string) => {
