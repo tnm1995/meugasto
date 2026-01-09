@@ -30,7 +30,7 @@ const getEnv = (key: string, fallback: string): string => {
 
 // Configuração com fallbacks explícitos para garantir que o app sempre inicie
 export const firebaseConfig = {
-  apiKey: getEnv("VITE_FIREBASE_API_KEY", "AIzaSyCxoflM16AOIdWq7ej3B9wkNNXaEXRwQUE"),
+  apiKey: getEnv("VITE_FIREBASE_API_KEY", "AIzaSyButX1v7EiV55oWWnHl2xaSgB1JaHlVSp0"),
   authDomain: getEnv("VITE_FIREBASE_AUTH_DOMAIN", "meugasto-e6f64.firebaseapp.com"),
   projectId: getEnv("VITE_FIREBASE_PROJECT_ID", "meugasto-e6f64"),
   storageBucket: getEnv("VITE_FIREBASE_STORAGE_BUCKET", "meugasto-e6f64.firebasestorage.app"),
@@ -54,7 +54,7 @@ let firebaseInitializationError: any = null;
 
 try {
   // Verificação simples para alertar o desenvolvedor no VS Code se as chaves estiverem faltando
-  if (firebaseConfig.apiKey === "AIzaSyCxoflM16AOIdWq7ej3B9wkNNXaEXRwQUE" && typeof window !== 'undefined' && window.location.hostname === "localhost") {
+  if (firebaseConfig.apiKey === "AIzaSyButX1v7EiV55oWWnHl2xaSgB1JaHlVSp0" && typeof window !== 'undefined' && window.location.hostname === "localhost") {
      console.warn("⚠️ AVISO: Você parece estar usando as chaves de API padrão/fallback. Para desenvolvimento local, crie um arquivo .env na raiz do projeto com suas credenciais reais (VITE_FIREBASE_...).");
   }
 
@@ -67,7 +67,7 @@ try {
     try {
       // Prevent 403 errors by only initializing Analytics if we are NOT using the fallback API Key.
       // The default fallback key has strict restrictions preventing Installations/Analytics on unauthorized domains (like localhost or forks).
-      const isFallbackKey = firebaseConfig.apiKey === "AIzaSyCxoflM16AOIdWq7ej3B9wkNNXaEXRwQUE";
+      const isFallbackKey = firebaseConfig.apiKey === "AIzaSyButX1v7EiV55oWWnHl2xaSgB1JaHlVSp0";
       
       if (!isFallbackKey) {
         analytics = getAnalytics(app);
