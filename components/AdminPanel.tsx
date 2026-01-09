@@ -573,16 +573,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                 <p className="text-xs text-gray-500">Valores, links e funcionalidades do app</p>
                             </div>
                         </div>
-                        <button 
-                            onClick={handleSaveSettings}
-                            disabled={isSavingPricing || loadingSettings}
-                            className="bg-black text-white font-bold py-2.5 px-8 rounded-xl hover:bg-gray-800 transition-all shadow-lg shadow-gray-200 flex items-center gap-2 disabled:bg-gray-300 disabled:shadow-none active:scale-95"
-                        >
-                            {isSavingPricing ? <span className="flex items-center"><span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>Salvando...</span> : <><CheckCircleIcon className="text-xl" /> Salvar Alterações</>}
-                        </button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                    <div className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar">
                         <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
                             {/* Feature Flags Section */}
                             <div className="space-y-6 lg:col-span-2">
@@ -605,8 +598,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                                 checked={scannerMaintenance}
                                                 onChange={(e) => setScannerMaintenance(e.target.checked)}
                                             />
-                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
-                                            <span className="ml-3 text-sm font-medium text-gray-900">{scannerMaintenance ? 'Em Manutenção' : 'Funcionando'}</span>
+                                            <div className="w-14 h-8 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-orange-600"></div>
                                         </label>
                                     </div>
                                 </div>
@@ -657,15 +649,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                 <div className="space-y-6">
                                     <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
                                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">Link Mensal</label>
-                                        <input type="url" value={editMonthlyLink} onChange={e => setEditMonthlyLink(e.target.value)} className="w-full p-4 border border-gray-200 rounded-xl text-sm text-blue-600 font-medium" />
+                                        <input type="url" value={editMonthlyLink} onChange={e => setEditMonthlyLink(e.target.value)} className="w-full p-4 border border-gray-200 rounded-xl text-base text-blue-600 font-medium" />
                                     </div>
                                     <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
                                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">Link Anual</label>
-                                        <input type="url" value={editAnnualLink} onChange={e => setEditAnnualLink(e.target.value)} className="w-full p-4 border border-gray-200 rounded-xl text-sm text-blue-600 font-medium" />
+                                        <input type="url" value={editAnnualLink} onChange={e => setEditAnnualLink(e.target.value)} className="w-full p-4 border border-gray-200 rounded-xl text-base text-blue-600 font-medium" />
                                     </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
+                    
+                    {/* New Footer with Save Button */}
+                    <div className="p-5 border-t border-gray-100 bg-gray-50 flex justify-end items-center shrink-0 safe-area-pb">
+                        <button 
+                            onClick={handleSaveSettings}
+                            disabled={isSavingPricing || loadingSettings}
+                            className="w-full sm:w-auto bg-black text-white font-bold py-3.5 sm:py-3 px-8 rounded-xl hover:bg-gray-800 transition-all shadow-lg shadow-gray-200 flex items-center justify-center gap-2 disabled:bg-gray-300 disabled:shadow-none active:scale-95"
+                        >
+                            {isSavingPricing ? <span className="flex items-center"><span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>Salvando...</span> : <><CheckCircleIcon className="text-xl" /> Salvar Alterações</>}
+                        </button>
                     </div>
                 </div>
             )}

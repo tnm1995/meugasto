@@ -13,7 +13,8 @@ import {
     DescriptionIcon, 
     MoreVertIcon, 
     XMarkIcon,
-    PaperClipIcon
+    PaperClipIcon,
+    ChevronRightIcon // Reutilizando para seta de voltar (rotacionada) ou importando ArrowBack se existisse
 } from './Icons';
 import { motion } from 'framer-motion';
 
@@ -254,17 +255,17 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
     };
 
     return (
-        <div className="flex h-[calc(100vh-140px)] bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="flex h-[calc(100vh-140px)] bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden relative">
             
-            {/* LEFT SIDEBAR: Ticket List */}
-            <div className="w-1/3 min-w-[300px] border-r border-gray-200 flex flex-col bg-gray-50">
+            {/* LEFT SIDEBAR: Ticket List (Ocupa full width no mobile se nenhum ticket selecionado) */}
+            <div className={`w-full md:w-1/3 min-w-[300px] border-r border-gray-200 flex flex-col bg-gray-50 transition-all duration-300 ${selectedTicketId ? 'hidden md:flex' : 'flex'}`}>
                 <div className="p-4 border-b border-gray-200 bg-white">
                     <div className="relative mb-4">
                         <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
                         <input 
                             type="text" 
                             placeholder="Buscar usuário..." 
-                            className="w-full pl-9 pr-4 py-2 bg-gray-100 border-transparent focus:bg-white focus:border-blue-500 rounded-lg text-sm transition-all outline-none border"
+                            className="w-full pl-9 pr-4 py-2.5 bg-gray-100 border-transparent focus:bg-white focus:border-blue-500 rounded-xl text-sm transition-all outline-none border"
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                         />
@@ -329,44 +330,55 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
                 </div>
             </div>
 
-            {/* MAIN CONTENT: Chat */}
+            {/* MAIN CONTENT: Chat (Full width on mobile when active) */}
+            <div className={`flex-1 flex flex-col min-w-0 bg-white relative transition-all duration-300 ${!selectedTicketId ? 'hidden md:flex' : 'flex'}`}>
             {selectedTicket ? (
-                <div className="flex-1 flex flex-col min-w-0 bg-white relative">
+                <>
                     {/* Header Chat */}
-                    <div className="h-16 border-b border-gray-100 flex justify-between items-center px-6 bg-white shrink-0">
-                        <div className="flex flex-col">
-                            <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                                {selectedTicket.userName}
-                                {isUserOnline(selectedTicket) ? (
-                                    <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> Online
-                                    </span>
-                                ) : (
-                                    <span className="text-[10px] font-medium text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">Offline</span>
-                                )}
-                            </h3>
-                            <p className="text-xs text-gray-500">{selectedTicket.userEmail}</p>
-                        </div>
+                    <div className="h-16 border-b border-gray-100 flex justify-between items-center px-4 bg-white shrink-0">
                         <div className="flex items-center gap-3">
+                            {/* Mobile Back Button */}
+                            <button 
+                                onClick={() => setSelectedTicketId(null)}
+                                className="md:hidden w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            >
+                                <span className="material-symbols-outlined text-lg transform rotate-180">arrow_forward</span>
+                            </button>
+
+                            <div className="flex flex-col">
+                                <h3 className="font-bold text-gray-800 flex items-center gap-2 text-sm sm:text-base">
+                                    {selectedTicket.userName}
+                                    {isUserOnline(selectedTicket) ? (
+                                        <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> <span className="hidden sm:inline">Online</span>
+                                        </span>
+                                    ) : (
+                                        <span className="text-[10px] font-medium text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full hidden sm:inline">Offline</span>
+                                    )}
+                                </h3>
+                                <p className="text-[10px] sm:text-xs text-gray-500 truncate max-w-[150px] sm:max-w-none">{selectedTicket.userEmail}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 sm:gap-3">
                             <select 
                                 value={selectedTicket.status}
                                 onChange={(e) => updateTicketField('status', e.target.value)}
-                                className="bg-gray-50 border border-gray-200 text-xs font-bold rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                                className="bg-gray-50 border border-gray-200 text-xs font-bold rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 outline-none focus:ring-2 focus:ring-blue-500"
                             >
                                 <option value="open">Aberto</option>
-                                <option value="in_progress">Em Andamento</option>
+                                <option value="in_progress">Andamento</option>
                                 <option value="resolved">Resolvido</option>
                             </select>
                         </div>
                     </div>
 
                     {/* Messages Area */}
-                    <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50 space-y-4 custom-scrollbar">
+                    <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-gray-50/50 space-y-4 custom-scrollbar">
                         {messages.map((msg) => {
                             const isSupport = msg.sender !== 'user';
                             return (
                                 <div key={msg.id} className={`flex ${isSupport ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-[70%] p-3 rounded-2xl text-sm shadow-sm ${isSupport ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-white border border-gray-200 text-gray-700 rounded-tl-none'}`}>
+                                    <div className={`max-w-[85%] sm:max-w-[70%] p-3 rounded-2xl text-sm shadow-sm ${isSupport ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-white border border-gray-200 text-gray-700 rounded-tl-none'}`}>
                                         {msg.attachmentUrl && (
                                             <div 
                                                 onClick={() => window.open(msg.attachmentUrl, '_blank')}
@@ -463,17 +475,18 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
                             </div>
                         </form>
                     </div>
-                </div>
+                </>
             ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50">
+                <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50 p-8 text-center">
                     <SupportAgentIcon className="text-6xl mb-4 opacity-20" />
-                    <p className="font-medium">Selecione um ticket para iniciar o atendimento</p>
+                    <p className="font-medium">Selecione um ticket na lista para iniciar o atendimento</p>
                 </div>
             )}
+            </div>
 
-            {/* RIGHT SIDEBAR: Details */}
+            {/* RIGHT SIDEBAR: Details (Oculto em mobile) */}
             {selectedTicket && (
-                <div className="w-1/4 min-w-[250px] border-l border-gray-200 bg-white flex flex-col p-5 overflow-y-auto">
+                <div className="hidden lg:flex w-1/4 min-w-[250px] border-l border-gray-200 bg-white flex-col p-5 overflow-y-auto">
                     <div className="mb-6">
                         <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Atribuir a</label>
                         <select 
@@ -507,7 +520,7 @@ export const AdminSupport: React.FC<AdminSupportProps> = ({ currentUser, allUser
                                     >
                                         {tag.label}
                                     </button>
-                                );w
+                                );
                             })}
                         </div>
                     </div>
