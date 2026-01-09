@@ -590,7 +590,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, scrollTarget,
             </div>
             <div className="flex items-center gap-4">
               <button onClick={() => onStart('login')} className="text-gray-700 font-bold hover:text-blue-600 transition-all text-sm px-5 py-2 rounded-full border-2 border-transparent hover:border-blue-50">Entrar</button>
-              <button onClick={() => onStart('register')} className="bg-gray-900 text-white px-5 py-2.5 rounded-full font-bold text-sm hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:scale-95">Começar Agora</button>
+              <button onClick={() => onStart('register')} className="hidden sm:block bg-gray-900 text-white px-5 py-2.5 rounded-full font-bold text-sm hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:scale-95">Começar Agora</button>
             </div>
           </div>
         </div>

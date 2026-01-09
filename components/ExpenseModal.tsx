@@ -240,7 +240,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         const err = e as Error;
         console.error("Erro completo do scanner:", err);
         
-        if (err.message === 'API_NOT_ENABLED' || err.message.includes('403') || err.message.includes('API key expired') || err.message.includes('API_KEY_INVALID')) {
+        if (err.message === 'API_KEY_LEAKED') {
+            showToast("A chave de API configurada foi revogada pelo Google por segurança. Contate o suporte ou gere uma nova.", "error");
+            onAPISetupError();
+            setPreviewUrl(null);
+        } else if (err.message === 'API_NOT_ENABLED' || err.message.includes('403') || err.message.includes('API key expired')) {
             onAPISetupError();
             setPreviewUrl(null);
         } else {
@@ -418,9 +422,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                         </div>
                         <div className="flex flex-col items-start">
                             <span className="text-base">{isScannerMaintenance ? 'Em Manutenção' : 'Escanear Nota Fiscal'}</span>
-                            {!isScannerMaintenance && (
-                                <span className="text-[10px] opacity-80 font-medium bg-white/10 px-2 py-0.5 rounded-md mt-0.5">IA Powered</span>
-                            )}
                         </div>
                     </button>
                     
