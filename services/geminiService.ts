@@ -4,8 +4,8 @@ import type { Expense, BankTransaction, Omit } from '../types';
 import { CATEGORIES } from '../types';
 
 // Initialize the Gemini API client
-// Usando a chave nova diretamente para garantir que não pegue a antiga do cache do processo
-const ai = new GoogleGenAI({ apiKey: 'AIzaSyAcGlrS2Ce25PkwN-Alp8vRcLJAxV-RepI' });
+// Usando process.env.API_KEY que é injetado pelo Vite com a chave correta
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // Helper para limpar blocos de código Markdown (```json ... ```) da resposta
 const cleanJsonString = (str: string) => {

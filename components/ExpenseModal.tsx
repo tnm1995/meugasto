@@ -240,7 +240,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         const err = e as Error;
         console.error("Erro completo do scanner:", err);
         
-        if (err.message === 'API_NOT_ENABLED' || err.message.includes('403') || err.message.includes('API key expired')) {
+        if (err.message === 'API_NOT_ENABLED' || err.message.includes('403') || err.message.includes('API key expired') || err.message.includes('API_KEY_INVALID')) {
             onAPISetupError();
             setPreviewUrl(null);
         } else {
