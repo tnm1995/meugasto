@@ -372,7 +372,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
 
     return (
         <div className="p-4 space-y-6 flex flex-col h-full overflow-hidden">
-            {/* ... (Header and Tabs code remains same) ... */}
+            {/* Header and Tabs */}
             <div className="mb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center shrink-0">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
@@ -381,11 +381,39 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                     </h1>
                 </div>
                 
-                <div className="flex bg-gray-100 p-1 rounded-xl mt-4 sm:mt-0 shadow-inner overflow-x-auto">
-                    <button onClick={() => setActiveTab('users')} className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'users' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}><GroupIcon className="text-lg" /> Usuários</button>
-                    <button onClick={() => setActiveTab('support')} className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'support' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}><ChatBubbleIcon className="text-lg" /> Suporte</button>
-                    {canViewLogs && <button onClick={() => setActiveTab('logs')} className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'logs' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}><HistoryIcon className="text-lg" /> Auditoria</button>}
-                    {canManagePricing && <button onClick={() => setActiveTab('settings')} className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'settings' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}><AdminPanelSettingsIcon className="text-lg" /> Configurações</button>}
+                {/* Menu de Abas Responsivo (Grid no Mobile, Flex no Desktop) */}
+                <div className="w-full sm:w-auto grid grid-cols-2 sm:flex gap-2 sm:gap-0 bg-gray-100 p-1 rounded-xl mt-4 sm:mt-0 shadow-inner">
+                    <button 
+                        onClick={() => setActiveTab('users')} 
+                        className={`px-2 sm:px-6 py-3 sm:py-2.5 text-xs sm:text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 w-full sm:w-auto ${activeTab === 'users' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        <GroupIcon className="text-lg" /> Usuários
+                    </button>
+                    
+                    <button 
+                        onClick={() => setActiveTab('support')} 
+                        className={`px-2 sm:px-6 py-3 sm:py-2.5 text-xs sm:text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 w-full sm:w-auto ${activeTab === 'support' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        <ChatBubbleIcon className="text-lg" /> Suporte
+                    </button>
+                    
+                    {canViewLogs && (
+                        <button 
+                            onClick={() => setActiveTab('logs')} 
+                            className={`px-2 sm:px-6 py-3 sm:py-2.5 text-xs sm:text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 w-full sm:w-auto ${activeTab === 'logs' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <HistoryIcon className="text-lg" /> Auditoria
+                        </button>
+                    )}
+                    
+                    {canManagePricing && (
+                        <button 
+                            onClick={() => setActiveTab('settings')} 
+                            className={`px-2 sm:px-6 py-3 sm:py-2.5 text-xs sm:text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 w-full sm:w-auto ${activeTab === 'settings' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <AdminPanelSettingsIcon className="text-lg" /> Configurações
+                        </button>
+                    )}
                 </div>
             </div>
 
