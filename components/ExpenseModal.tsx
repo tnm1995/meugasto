@@ -168,11 +168,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     
-    // Check Scan Limit
+    // Check Scan Limit (Strictly 3 for non-premium)
     if (currentUser) {
         const isPremium = !!currentUser.subscriptionExpiresAt;
         const scansUsed = currentUser.scanCount || 0;
         
+        // Bloqueia se não for premium e já tiver usado 3 ou mais
         if (!isPremium && scansUsed >= 3) {
             if (fileInputRef.current) fileInputRef.current.value = '';
             if (onOpenSubscriptionModal) {
@@ -237,12 +238,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         
       } catch (e) {
         const err = e as Error;
-        if (err.message === 'API_NOT_ENABLED') {
+        console.error("Erro completo do scanner:", err);
+        
+        if (err.message === 'API_NOT_ENABLED' || err.message.includes('403') || err.message.includes('API key expired')) {
             onAPISetupError();
             setPreviewUrl(null);
         } else {
-            setError(err.message);
-            showToast('Erro ao ler a nota. Tente tirar uma foto mais clara.', 'error');
+            setError(`Erro na leitura: ${err.message}`);
+            showToast('Não foi possível ler a nota. Tente uma foto mais clara.', 'error');
         }
       } finally {
         setIsLoading(false);
@@ -335,6 +338,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const inputClasses = "w-full p-3.5 bg-white text-gray-800 rounded-xl border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 disabled:bg-gray-50 disabled:text-gray-400 placeholder-gray-400";
   const itemInputClasses = "p-2.5 bg-white text-gray-800 rounded-lg border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-all";
   
+  // Lógica visual para contagem de scans (mostra infinito apenas se for Premium)
+  const isPremiumUser = !!currentUser?.subscriptionExpiresAt;
+  const scansRemaining = Math.max(0, 3 - (currentUser?.scanCount || 0));
+
   return ReactDOM.createPortal(
     <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex justify-center items-center z-[9999] p-4" role="dialog" aria-modal="true" aria-labelledby="expense-modal-title">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-fade-in">
@@ -403,18 +410,28 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                         className={`w-full flex items-center justify-center gap-3 p-4 border text-center font-bold rounded-2xl transition-all shadow-sm group active:scale-[0.98] ${
                             isScannerMaintenance 
                             ? 'bg-orange-50 border-orange-200 text-orange-600 hover:bg-orange-100 cursor-help' 
-                            : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100 text-blue-700 hover:from-blue-100 hover:to-indigo-100'
+                            : 'bg-gradient-to-br from-blue-600 to-indigo-600 border-transparent text-white hover:from-blue-700 hover:to-indigo-700 shadow-blue-200 shadow-lg'
                         }`}
                     >
-                        <div className={`w-10 h-10 flex items-center justify-center rounded-full shadow-sm transition-transform ${isScannerMaintenance ? 'bg-orange-100 text-orange-600' : 'bg-white group-hover:scale-110'}`}>
+                        <div className={`w-10 h-10 flex items-center justify-center rounded-full shadow-sm transition-transform ${isScannerMaintenance ? 'bg-orange-100 text-orange-600' : 'bg-white/20 text-white group-hover:scale-110'}`}>
                           {isScannerMaintenance ? <ConstructionIcon className="text-xl" /> : <CameraIcon className="text-xl" />}
                         </div>
-                        {isScannerMaintenance ? 'Recurso em Manutenção para Melhorias' : 'Escanear Nota Fiscal (IA)'}
+                        <div className="flex flex-col items-start">
+                            <span className="text-base">{isScannerMaintenance ? 'Em Manutenção' : 'Escanear Nota Fiscal'}</span>
+                            {!isScannerMaintenance && (
+                                <span className="text-[10px] opacity-80 font-medium bg-white/10 px-2 py-0.5 rounded-md mt-0.5">IA Powered</span>
+                            )}
+                        </div>
                     </button>
-                    {/* Scanner counter for free users */}
-                    {currentUser && !currentUser.subscriptionExpiresAt && !isScannerMaintenance && (
+                    
+                    {/* Scanner counter info */}
+                    {!isScannerMaintenance && currentUser && (
                        <p className="text-[10px] text-center text-gray-400 mt-2 font-medium">
-                           Restam {Math.max(0, 3 - (currentUser.scanCount || 0))} scans gratuitos
+                           {isPremiumUser ? (
+                               <span className="text-green-600 flex items-center justify-center gap-1"><span className="material-symbols-outlined text-sm">verified</span> Scans Ilimitados (Premium)</span>
+                           ) : (
+                               <span>Restam {scansRemaining} scans gratuitos</span>
+                           )}
                        </p>
                     )}
                 </div>
